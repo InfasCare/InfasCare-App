@@ -1,28 +1,33 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useColorScheme } from 'react-native';
+import { Colors, Brand } from '@/constants/theme';
 
 export default function TabLayout() {
+  const scheme = useColorScheme() ?? 'light';
+  const C = Colors[scheme];
+
   return (
-    <Tabs 
-      screenOptions={{ 
-        // Cor quando selecionado (seu roxo)
-        tabBarActiveTintColor: '#6A5AE0', 
-        
-        // Cor quando não selecionado (seu cinza)
-        tabBarInactiveTintColor: '#8e8e93', 
-        
-        // Estilização extra para alinhar com o design minimalista
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor:   C.tabIconSelected,
+        tabBarInactiveTintColor: C.tabIconDefault,
         tabBarStyle: {
+          backgroundColor: C.tabBar,
+          borderTopColor:  C.tabBarBorder,
           paddingTop: 2,
-        }
+        },
+        tabBarLabelStyle: {
+          fontFamily: 'Poppins-Medium',
+          fontSize: 11,
+        },
+        headerShown: false,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Início',
-          // Ícone preenchido para o estado ativo costuma ser o padrão, 
-          // mas o "home" é ideal para o Início
           tabBarIcon: ({ color }) => <Ionicons name="home" color={color} size={24} />,
         }}
       />
@@ -30,7 +35,6 @@ export default function TabLayout() {
         name="alertas"
         options={{
           title: 'Alertas',
-          // O "notifications-outline" é o traço fino da imagem
           tabBarIcon: ({ color }) => <Ionicons name="notifications-outline" color={color} size={24} />,
         }}
       />
@@ -38,7 +42,6 @@ export default function TabLayout() {
         name="localizacao"
         options={{
           title: 'Localização',
-          // O "location-outline" é o traço fino ideal
           tabBarIcon: ({ color }) => <Ionicons name="location-outline" color={color} size={24} />,
         }}
       />
@@ -46,7 +49,6 @@ export default function TabLayout() {
         name="historico"
         options={{
           title: 'Histórico',
-          // O "trending-up" é o ícone de seta subindo da sua imagem
           tabBarIcon: ({ color }) => <Ionicons name="trending-up" color={color} size={24} />,
         }}
       />
@@ -54,7 +56,6 @@ export default function TabLayout() {
         name="perfil"
         options={{
           title: 'Perfil',
-          // O "person-outline" é o traço fino do perfil
           tabBarIcon: ({ color }) => <Ionicons name="person-outline" color={color} size={24} />,
         }}
       />
