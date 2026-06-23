@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "InfasCare-App",
+    "name": "InfasCare",
     "slug": "InfasCare-App",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,22 +8,40 @@
     "scheme": "infascareapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "primaryColor": "#6A5AE0",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.infascare.app",
+      "infoPlist": {
+        "UIStatusBarStyle": "UIStatusBarStyleLightContent",
+        "UIViewControllerBasedStatusBarAppearance": false
+      }
     },
     "android": {
+      "package": "com.infascare.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#6A5AE0",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "softwareKeyboardLayoutMode": "pan",
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "statusBar": {
+        "backgroundColor": "#0D0B1E",
+        "barStyle": "light-content"
+      },
+      "navigationBar": {
+        "backgroundColor": "#FFFFFF",
+        "barStyle": "dark-content"
+      }
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "themeColor": "#6A5AE0",
+      "backgroundColor": "#F2F3F7"
     },
     "plugins": [
       "expo-router",
@@ -33,10 +51,7 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
-          "dark": {
-            "backgroundColor": "#000000"
-          }
+          "backgroundColor": "#0D0B1E"
         }
       ],
       "expo-font"

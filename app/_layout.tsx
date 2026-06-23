@@ -1,28 +1,41 @@
+// app/_layout.tsx  ← substitua o seu arquivo existente por este
+
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import InfasCareSplash from '../components/AnimatedSplash';
 
-// Previne que a splash screen feche até que as fontes sejam carregadas
+// Mantém a splash nativa do Expo visível até as fontes carregarem
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [loaded] = useFonts({
-    'Poppins-Regular': require('../assets/fonts/Poppins-Regular.ttf'),
-    'Poppins-Medium': require('../assets/fonts/Poppins-Medium.ttf'),
+  const [fontsLoaded] = useFonts({
+    'Poppins-Regular':  require('../assets/fonts/Poppins-Regular.ttf'),
+    'Poppins-Medium':   require('../assets/fonts/Poppins-Medium.ttf'),
     'Poppins-SemiBold': require('../assets/fonts/Poppins-SemiBold.ttf'),
   });
 
+  // Controla se o nosso splash animado já terminou
+  const [splashDone, setSplashDone] = useState(false);
+
   useEffect(() => {
-    if (loaded) {
+    if (fontsLoaded) {
+      // Esconde a splash nativa do Expo assim que as fontes carregam,
+      // nosso componente animado assume a partir daí.
       SplashScreen.hideAsync();
     }
-  }, [loaded]);
+  }, [fontsLoaded]);
 
-  if (!loaded) {
-    return null; // Ou um componente de carregamento
+  // Enquanto as fontes não carregam, não renderiza nada
+  if (!fontsLoaded) return null;
+
+  // Fontes prontas mas splash animado ainda rodando
+  if (!splashDone) {
+    return <InfasCareSplash onFinish={() => setSplashDone(true)} />;
   }
 
+  // Splash terminou → app normal
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(auth)" />
