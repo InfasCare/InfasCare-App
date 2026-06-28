@@ -23,27 +23,6 @@ const EMOJIS = [
   '🧑🏻', '🧑🏼', '🧑🏽', '🧑🏾', '🧑🏿',
 ];
 
-const ACESSOS = [
-  {
-    key: 'Visualizar',
-    icon: 'eye-outline' as const,
-    title: 'Visualizar',
-    subtitle: 'Pode visualizar informações e receber alertas.',
-  },
-  {
-    key: 'Receber alertas',
-    icon: 'notifications-outline' as const,
-    title: 'Receber alertas',
-    subtitle: 'Recebe alertas importantes, sem acessar o app.',
-  },
-  {
-    key: 'Controle total',
-    icon: 'shield-checkmark-outline' as const,
-    title: 'Controle total',
-    subtitle: 'Acesso completo para visualizar e gerenciar tudo.',
-  },
-];
-
 export default function AdicionarResponsavel() {
   const theme = useTheme();
 
@@ -58,110 +37,77 @@ export default function AdicionarResponsavel() {
   }
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.backgroundSoft }]}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingBottom: 50 }}
-    >
-      {/* Header */}
+    <ScrollView style={[styles.container, { backgroundColor: theme.backgroundSoft }]} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <TouchableOpacity
-          style={[styles.backButton, { backgroundColor: theme.backgroundCard }]}
-          onPress={voltar}
-        >
+        <TouchableOpacity onPress={voltar} style={[styles.backButton, { backgroundColor: theme.backgroundCard }]}>
           <Ionicons name="chevron-back" size={22} color={theme.text} />
         </TouchableOpacity>
 
         <View style={styles.headerText}>
-          <Text style={[styles.title, { color: theme.text }]}>Novo responsável</Text>
+          <Text style={[styles.title, { color: theme.text }]}>Adicionar responsável</Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-            Convide para receber alertas importantes
+            Convide familiares ou cuidadores para receber alertas importantes.
           </Text>
         </View>
 
-        <View style={{ width: 38 }} />
+        <View style={{ width: 36 }} />
       </View>
 
-      {/* Avatar Picker */}
       <TouchableOpacity
         style={styles.avatarArea}
         onPress={() => setModalEmoji(true)}
         activeOpacity={0.8}
       >
-        <View style={[styles.avatarRing, { borderColor: theme.tint }]}>
-          <View style={[styles.avatar, { backgroundColor: theme.accentSoft }]}>
-            <Text style={styles.avatarEmoji}>{emoji}</Text>
-          </View>
+        <View style={[styles.avatar, { backgroundColor: theme.accentSoft }]}>
+          <Text style={styles.avatarEmoji}>{emoji}</Text>
         </View>
 
         <View style={styles.cameraButton}>
-          <Ionicons name="camera" size={14} color="#FFFFFF" />
+          <Ionicons name="camera" size={15} color="#FFFFFF" />
         </View>
-
-        <Text style={[styles.avatarHint, { color: theme.textMuted }]}>Toque para escolher</Text>
       </TouchableOpacity>
 
-      {/* Form */}
-      <View style={[styles.formCard, { backgroundColor: theme.backgroundCard }]}>
-        <InputField
-          theme={theme}
-          label="Nome completo"
-          icon="person-outline"
-          placeholder="Digite o nome completo"
-        />
-        <InputField
-          theme={theme}
-          label="Parentesco"
-          icon="heart-outline"
-          placeholder="Selecione o parentesco"
-          arrow
-        />
-        <InputField
-          theme={theme}
-          label="Telefone"
-          icon="call-outline"
-          placeholder="(00) 00000-0000"
-        />
-        <InputField
-          theme={theme}
-          label="E-mail (opcional)"
-          icon="mail-outline"
-          placeholder="email@exemplo.com"
-          last
-        />
-      </View>
+      <Input label="Nome completo" icon="person-outline" placeholder="Digite o nome completo" theme={theme} />
+      <Input label="Parentesco" icon="heart-outline" placeholder="Selecione o parentesco" arrow theme={theme} />
+      <Input label="Telefone" icon="call-outline" placeholder="(00) 00000-0000" theme={theme} />
+      <Input label="E-mail (opcional)" icon="mail-outline" placeholder="email@exemplo.com" theme={theme} />
 
-      {/* Access Type */}
       <Text style={[styles.sectionTitle, { color: theme.text }]}>Tipo de acesso</Text>
 
-      <View style={[styles.accessGroup, { backgroundColor: theme.backgroundCard }]}>
-        {ACESSOS.map((a, i) => (
-          <View key={a.key}>
-            <AccessOption
-              theme={theme}
-              active={tipoAcesso === a.key}
-              icon={a.icon}
-              title={a.title}
-              subtitle={a.subtitle}
-              onPress={() => setTipoAcesso(a.key)}
-            />
-            {i < ACESSOS.length - 1 && (
-              <View style={[styles.divider, { backgroundColor: theme.border, marginLeft: 58 }]} />
-            )}
-          </View>
-        ))}
-      </View>
+      <AccessOption
+        active={tipoAcesso === 'Visualizar'}
+        icon="eye-outline"
+        title="Visualizar"
+        subtitle="Pode visualizar informações e receber alertas."
+        onPress={() => setTipoAcesso('Visualizar')}
+        theme={theme}
+      />
 
-      {/* Location Toggle */}
+      <AccessOption
+        active={tipoAcesso === 'Receber alertas'}
+        icon="notifications-outline"
+        title="Receber alertas"
+        subtitle="Recebe alertas importantes, sem acessar o app."
+        onPress={() => setTipoAcesso('Receber alertas')}
+        theme={theme}
+      />
+
+      <AccessOption
+        active={tipoAcesso === 'Controle total'}
+        icon="shield-checkmark-outline"
+        title="Controle total"
+        subtitle="Acesso completo para visualizar e gerenciar tudo."
+        onPress={() => setTipoAcesso('Controle total')}
+        theme={theme}
+      />
+
       <View style={[styles.locationCard, { backgroundColor: theme.backgroundCard }]}>
         <View style={[styles.locationIcon, { backgroundColor: theme.accentSoft }]}>
-          <Ionicons name="location" size={18} color={theme.tint} />
+          <Ionicons name="lock-closed" size={18} color="#7B4DFF" />
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={[styles.locationTitle, { color: theme.text }]}>
-            Compartilhar localização
-          </Text>
+          <Text style={[styles.locationTitle, { color: theme.text }]}>Compartilhar localização</Text>
           <Text style={[styles.locationSubtitle, { color: theme.textSecondary }]}>
             Permitir que este responsável veja a localização.
           </Text>
@@ -175,29 +121,22 @@ export default function AdicionarResponsavel() {
         />
       </View>
 
-      {/* Actions */}
       <TouchableOpacity style={styles.inviteButton} onPress={voltar}>
-        <Ionicons name="person-add-outline" size={18} color="#FFFFFF" />
         <Text style={styles.inviteText}>Convidar responsável</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={voltar}>
-        <Text style={[styles.cancelText, { color: theme.tint }]}>Cancelar</Text>
+        <Text style={[styles.cancelText, { color: '#7B4DFF' }]}>Cancelar</Text>
       </TouchableOpacity>
 
-      {/* Emoji Modal */}
-      <Modal visible={modalEmoji} transparent animationType="slide">
+      <Modal visible={modalEmoji} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.emojiModal, { backgroundColor: theme.backgroundCard }]}>
-            <View style={[styles.modalHandle, { backgroundColor: theme.border }]} />
-
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>Escolha um avatar</Text>
-              <TouchableOpacity
-                style={[styles.closeBtn, { backgroundColor: theme.backgroundSoft }]}
-                onPress={() => setModalEmoji(false)}
-              >
-                <Ionicons name="close" size={18} color={theme.textSecondary} />
+
+              <TouchableOpacity onPress={() => setModalEmoji(false)}>
+                <Ionicons name="close" size={24} color={theme.text} />
               </TouchableOpacity>
             </View>
 
@@ -226,73 +165,47 @@ export default function AdicionarResponsavel() {
   );
 }
 
-function InputField({
-  theme,
-  label,
-  icon,
-  placeholder,
-  arrow,
-  last,
-}: {
-  theme: any;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  placeholder: string;
-  arrow?: boolean;
-  last?: boolean;
-}) {
+function Input({ label, icon, placeholder, arrow, theme }: any) {
   return (
-    <View style={[styles.inputArea, last ? {} : styles.inputBorder]}>
-      <Text style={[styles.label, { color: theme.textSecondary }]}>{label}</Text>
-      <View style={styles.inputRow}>
-        <Ionicons name={icon} size={18} color={theme.tint} />
+    <View style={styles.inputArea}>
+      <Text style={[styles.label, { color: theme.text }]}>{label}</Text>
+
+      <View style={[styles.inputBox, { backgroundColor: theme.backgroundCard, borderColor: theme.borderInput }]}>
+        <Ionicons name={icon} size={18} color="#9B75FF" />
         <TextInput
           style={[styles.input, { color: theme.text }]}
           placeholder={placeholder}
           placeholderTextColor={theme.textMuted}
         />
-        {arrow && <Ionicons name="chevron-down" size={16} color={theme.textMuted} />}
+
+        {arrow && <Ionicons name="chevron-down" size={18} color={theme.textMuted} />}
       </View>
     </View>
   );
 }
 
-function AccessOption({
-  theme,
-  active,
-  icon,
-  title,
-  subtitle,
-  onPress,
-}: {
-  theme: any;
-  active: boolean;
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  subtitle: string;
-  onPress: () => void;
-}) {
+function AccessOption({ active, icon, title, subtitle, onPress, theme }: any) {
   return (
-    <TouchableOpacity style={styles.accessCard} onPress={onPress} activeOpacity={0.8}>
-      <View
-        style={[
-          styles.radio,
-          { borderColor: active ? theme.tint : theme.border },
-        ]}
-      >
-        {active && <View style={[styles.radioDot, { backgroundColor: theme.tint }]} />}
+    <TouchableOpacity
+      onPress={onPress}
+      style={[
+        styles.accessCard,
+        { backgroundColor: theme.backgroundCard, borderColor: theme.borderInput },
+        active && styles.accessCardActive,
+      ]}
+    >
+      <View style={[styles.radio, { borderColor: active ? '#7B4DFF' : theme.border }]}>
+        {active && <View style={styles.radioDot} />}
       </View>
 
       <View style={[styles.accessIcon, { backgroundColor: theme.accentSoft }]}>
-        <Ionicons name={icon} size={18} color={theme.tint} />
+        <Ionicons name={icon} size={19} color="#8B5CF6" />
       </View>
 
       <View style={{ flex: 1 }}>
         <Text style={[styles.accessTitle, { color: theme.text }]}>{title}</Text>
         <Text style={[styles.accessSubtitle, { color: theme.textSecondary }]}>{subtitle}</Text>
       </View>
-
-      {active && <Ionicons name="checkmark-circle" size={20} color={theme.tint} />}
     </TouchableOpacity>
   );
 }
@@ -300,7 +213,7 @@ function AccessOption({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingTop: 58,
   },
 
@@ -313,59 +226,47 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
   },
 
   backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
   },
 
   title: {
     fontFamily: 'Poppins-SemiBold',
-    fontSize: 18,
+    fontSize: 20,
     textAlign: 'center',
   },
 
   subtitle: {
     fontFamily: 'Poppins-Regular',
-    fontSize: 11,
+    fontSize: 12,
     textAlign: 'center',
-    marginTop: 3,
+    marginTop: 6,
   },
 
   avatarArea: {
     alignItems: 'center',
-    marginBottom: 24,
-  },
-
-  avatarRing: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 3,
+    marginBottom: 18,
   },
 
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  avatarEmoji: { fontSize: 44 },
+  avatarEmoji: {
+    fontSize: 42,
+  },
 
   cameraButton: {
     width: 26,
@@ -374,45 +275,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#7B4DFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -24,
-    marginLeft: 58,
+    marginTop: -22,
+    marginLeft: 52,
     borderWidth: 3,
     borderColor: 'transparent',
   },
 
-  avatarHint: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 11,
-    marginTop: 10,
-  },
-
-  formCard: {
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    marginBottom: 20,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-  },
-
   inputArea: {
-    paddingVertical: 14,
-  },
-
-  inputBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.08)',
+    marginBottom: 13,
   },
 
   label: {
     fontFamily: 'Poppins-Medium',
-    fontSize: 11,
-    marginBottom: 6,
+    fontSize: 12,
+    marginBottom: 7,
   },
 
-  inputRow: {
+  inputBox: {
+    height: 50,
+    borderRadius: 13,
+    borderWidth: 1,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -421,51 +304,47 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontFamily: 'Poppins-Regular',
-    fontSize: 13,
-    height: 32,
+    fontSize: 12,
   },
 
   sectionTitle: {
     fontFamily: 'Poppins-SemiBold',
-    fontSize: 14,
-    marginBottom: 10,
-  },
-
-  accessGroup: {
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    fontSize: 13,
+    marginTop: 4,
+    marginBottom: 9,
   },
 
   accessCard: {
+    minHeight: 58,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    gap: 10,
+    marginBottom: 10,
   },
 
-  divider: {
-    height: StyleSheet.hairlineWidth,
+  accessCardActive: {
+    borderColor: '#8B5CF6',
+    borderWidth: 2,
   },
 
   radio: {
     width: 18,
     height: 18,
     borderRadius: 9,
-    borderWidth: 2,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 10,
   },
 
   radioDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
+    backgroundColor: '#7B4DFF',
   },
 
   accessIcon: {
@@ -474,11 +353,12 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 10,
   },
 
   accessTitle: {
     fontFamily: 'Poppins-SemiBold',
-    fontSize: 13,
+    fontSize: 12,
   },
 
   accessSubtitle: {
@@ -488,30 +368,28 @@ const styles = StyleSheet.create({
   },
 
   locationCard: {
-    borderRadius: 18,
-    padding: 16,
+    minHeight: 64,
+    borderRadius: 16,
+    paddingHorizontal: 13,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 24,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    marginTop: 2,
+    marginBottom: 22,
+    elevation: 1,
   },
 
   locationIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 11,
   },
 
   locationTitle: {
     fontFamily: 'Poppins-SemiBold',
-    fontSize: 13,
+    fontSize: 12,
   },
 
   locationSubtitle: {
@@ -526,14 +404,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#7B4DFF',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
-    shadowColor: '#7B4DFF',
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    marginBottom: 18,
+    elevation: 4,
   },
 
   inviteText: {
@@ -546,33 +418,25 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Medium',
     fontSize: 13,
     textAlign: 'center',
+    marginBottom: 40,
   },
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(33, 22, 77, 0.35)',
     justifyContent: 'flex-end',
   },
 
   emojiModal: {
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     padding: 24,
-  },
-
-  modalHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
   },
 
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
   },
 
   modalTitle: {
@@ -580,33 +444,28 @@ const styles = StyleSheet.create({
     fontSize: 17,
   },
 
-  closeBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
   emojiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    paddingBottom: 20,
+    gap: 12,
+    marginTop: 20,
+    marginBottom: 16,
   },
 
   emojiOption: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   emojiOptionActive: {
-    borderWidth: 2.5,
+    borderWidth: 2,
     borderColor: '#7B4DFF',
   },
 
-  emojiText: { fontSize: 28 },
+  emojiText: {
+    fontSize: 28,
+  },
 });
