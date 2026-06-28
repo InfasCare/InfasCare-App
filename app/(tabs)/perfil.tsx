@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useTheme } from '@/hooks/use-theme-color';
 
 type PerfilData = {
   nome: string;
@@ -22,6 +23,8 @@ type PerfilData = {
 };
 
 export default function Perfil() {
+  const theme = useTheme();
+
   const [perfil, setPerfil] = useState<PerfilData>({
     nome: 'Maria Silva',
     email: 'maria.silva@email.com',
@@ -49,27 +52,38 @@ export default function Perfil() {
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.backgroundSoft }]}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={24} color="#21164D" />
+        <TouchableOpacity
+          style={[styles.headerIconBtn, { backgroundColor: theme.backgroundCard }]}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="chevron-back" size={22} color={theme.text} />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Perfil</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Perfil</Text>
 
-        <TouchableOpacity onPress={abrirEdicao}>
-          <Ionicons name="pencil" size={20} color="#21164D" />
+        <TouchableOpacity
+          style={[styles.headerIconBtn, { backgroundColor: theme.backgroundCard }]}
+          onPress={abrirEdicao}
+        >
+          <Ionicons name="pencil" size={18} color={theme.tint} />
         </TouchableOpacity>
       </View>
 
+      {/* Profile Card */}
       <View style={styles.profileCard}>
         <View style={styles.avatar}>
           <Ionicons name="person" size={34} color="#8B5CF6" />
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={styles.name}>{perfil.nome}</Text>
-          <Text style={styles.email}>{perfil.email}</Text>
+          <Text style={styles.profileName}>{perfil.nome}</Text>
+          <Text style={styles.profileEmail}>{perfil.email}</Text>
         </View>
 
         <TouchableOpacity style={styles.editCircle} onPress={abrirEdicao}>
@@ -77,94 +91,134 @@ export default function Perfil() {
         </TouchableOpacity>
       </View>
 
+      {/* Quick Info */}
       <View style={styles.quickInfo}>
-        <InfoBox icon="shield-checkmark-outline" title="Status" value="Seguro" />
-        <InfoBox icon="heart-outline" title="Conta" value="Ativa" />
+        <InfoBox
+          theme={theme}
+          icon="shield-checkmark-outline"
+          title="Status"
+          value="Seguro"
+          color="#22C55E"
+        />
+        <InfoBox
+          theme={theme}
+          icon="heart-outline"
+          title="Conta"
+          value="Ativa"
+          color="#7B4DFF"
+        />
       </View>
 
-      <View style={styles.menu}>
+      {/* Menu */}
+      <View style={[styles.menuSection, { backgroundColor: theme.backgroundCard }]}>
         <MenuItem
+          theme={theme}
           icon="person-outline"
           title="Meu perfil"
           onPress={() => setMostrarInfo(!mostrarInfo)}
         />
 
         {mostrarInfo && (
-          <View style={styles.infoCard}>
-            <Detail icon="person" label="Nome" value={perfil.nome} />
-            <Detail icon="mail" label="E-mail" value={perfil.email} />
-            <Detail icon="call" label="Telefone" value={perfil.telefone} />
-            <Detail icon="location" label="Endereço" value={perfil.endereco} />
-            <Detail icon="star" label="Tipo" value={perfil.responsavel} />
+          <View style={[styles.infoCard, { backgroundColor: theme.backgroundSoft }]}>
+            <Detail theme={theme} icon="person" label="Nome" value={perfil.nome} />
+            <Detail theme={theme} icon="mail" label="E-mail" value={perfil.email} />
+            <Detail theme={theme} icon="call" label="Telefone" value={perfil.telefone} />
+            <Detail theme={theme} icon="location" label="Endereço" value={perfil.endereco} />
+            <Detail theme={theme} icon="star" label="Tipo" value={perfil.responsavel} />
           </View>
         )}
 
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
         <MenuItem
+          theme={theme}
           icon="people-outline"
           title="Crianças cadastradas"
           onPress={() => router.push('/(settings)/criancas')}
         />
 
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
         <MenuItem
+          theme={theme}
           icon="people-circle-outline"
           title="Responsáveis cadastrados"
           onPress={() => router.push('/(settings)/responsaveis')}
         />
 
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
         <MenuItem
+          theme={theme}
           icon="bluetooth-outline"
           title="Dispositivos conectados"
           onPress={() => router.push('/(settings)/dispositivos')}
         />
 
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
         <MenuItem
+          theme={theme}
           icon="settings-outline"
           title="Configurações"
           onPress={() => router.push('/(settings)/configuracoes')}
         />
 
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
         <MenuItem
+          theme={theme}
           icon="information-circle-outline"
           title="Sobre o aplicativo"
-          onPress={() => router.push('/(settings)/suporte')}
+          onPress={() => router.push('/(settings)/sobre')}
         />
       </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={sair}>
+      {/* Logout */}
+      <TouchableOpacity
+        style={[styles.logoutButton, { backgroundColor: theme.backgroundCard }]}
+        onPress={sair}
+      >
         <Ionicons name="log-out-outline" size={19} color="#FF4D4D" />
-        <Text style={styles.logoutText}>Sair</Text>
+        <Text style={styles.logoutText}>Sair da conta</Text>
       </TouchableOpacity>
 
-      <Modal visible={editando} transparent animationType="fade">
+      {/* Edit Modal */}
+      <Modal visible={editando} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Editar perfil</Text>
+          <View style={[styles.modalBox, { backgroundColor: theme.backgroundCard }]}>
+            <View style={[styles.modalHandle, { backgroundColor: theme.border }]} />
 
-              <TouchableOpacity onPress={() => setEditando(false)}>
-                <Ionicons name="close" size={24} color="#21164D" />
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>Editar perfil</Text>
+              <TouchableOpacity
+                style={[styles.closeBtn, { backgroundColor: theme.backgroundSoft }]}
+                onPress={() => setEditando(false)}
+              >
+                <Ionicons name="close" size={20} color={theme.textSecondary} />
               </TouchableOpacity>
             </View>
 
-            <Input
+            <InputField
+              theme={theme}
               label="Nome"
               value={form.nome}
               onChangeText={(v: string) => setForm({ ...form, nome: v })}
             />
-
-            <Input
+            <InputField
+              theme={theme}
               label="E-mail"
               value={form.email}
               onChangeText={(v: string) => setForm({ ...form, email: v })}
             />
-
-            <Input
+            <InputField
+              theme={theme}
               label="Telefone"
               value={form.telefone}
               onChangeText={(v: string) => setForm({ ...form, telefone: v })}
             />
-
-            <Input
+            <InputField
+              theme={theme}
               label="Endereço"
               value={form.endereco}
               onChangeText={(v: string) => setForm({ ...form, endereco: v })}
@@ -181,10 +235,12 @@ export default function Perfil() {
 }
 
 function MenuItem({
+  theme,
   icon,
   title,
   onPress,
 }: {
+  theme: any;
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   onPress?: () => void;
@@ -194,82 +250,97 @@ function MenuItem({
   return (
     <Pressable
       onPressIn={() =>
-        Animated.spring(scale, {
-          toValue: 0.97,
-          useNativeDriver: true,
-        }).start()
+        Animated.spring(scale, { toValue: 0.98, useNativeDriver: true }).start()
       }
       onPressOut={() =>
-        Animated.spring(scale, {
-          toValue: 1,
-          useNativeDriver: true,
-        }).start()
+        Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start()
       }
       onPress={onPress}
     >
       <Animated.View style={[styles.menuItem, { transform: [{ scale }] }]}>
-        <View style={styles.menuLeft}>
-          <Ionicons name={icon} size={19} color="#6D6A80" />
-          <Text style={styles.menuText}>{title}</Text>
+        <View style={[styles.menuIconCircle, { backgroundColor: theme.accentSoft }]}>
+          <Ionicons name={icon} size={17} color={theme.tint} />
         </View>
-
-        <Ionicons name="chevron-forward" size={18} color="#B8B5C7" />
+        <Text style={[styles.menuText, { color: theme.text }]}>{title}</Text>
+        <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
       </Animated.View>
     </Pressable>
   );
 }
 
 function InfoBox({
+  theme,
   icon,
   title,
   value,
+  color,
 }: {
+  theme: any;
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   value: string;
+  color: string;
 }) {
   return (
-    <View style={styles.infoBox}>
-      <Ionicons name={icon} size={22} color="#7B4DFF" />
-      <Text style={styles.infoTitle}>{title}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
+    <View style={[styles.infoBox, { backgroundColor: theme.backgroundCard }]}>
+      <View style={[styles.infoIconCircle, { backgroundColor: theme.accentSoft }]}>
+        <Ionicons name={icon} size={20} color={color} />
+      </View>
+      <Text style={[styles.infoTitle, { color: theme.textSecondary }]}>{title}</Text>
+      <Text style={[styles.infoValue, { color: theme.text }]}>{value}</Text>
     </View>
   );
 }
 
 function Detail({
+  theme,
   icon,
   label,
   value,
 }: {
+  theme: any;
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string;
 }) {
   return (
     <View style={styles.detail}>
-      <Ionicons name={icon} size={18} color="#7B4DFF" />
+      <Ionicons name={icon} size={16} color={theme.tint} />
       <View>
-        <Text style={styles.detailLabel}>{label}</Text>
-        <Text style={styles.detailValue}>{value}</Text>
+        <Text style={[styles.detailLabel, { color: theme.textMuted }]}>{label}</Text>
+        <Text style={[styles.detailValue, { color: theme.text }]}>{value}</Text>
       </View>
     </View>
   );
 }
 
-function Input({
+function InputField({
+  theme,
   label,
   value,
   onChangeText,
 }: {
+  theme: any;
   label: string;
   value: string;
   onChangeText: (text: string) => void;
 }) {
   return (
     <View style={styles.inputArea}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <TextInput style={styles.input} value={value} onChangeText={onChangeText} />
+      <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>{label}</Text>
+      <TextInput
+        style={[
+          styles.input,
+          {
+            backgroundColor: theme.inputBg,
+            borderColor: theme.borderInput,
+            color: theme.text,
+          },
+        ]}
+        value={value}
+        onChangeText={onChangeText}
+        placeholderTextColor={theme.textMuted}
+      />
     </View>
   );
 }
@@ -277,8 +348,7 @@ function Input({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F7FC',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 58,
   },
 
@@ -286,50 +356,64 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 22,
+    marginBottom: 20,
+  },
+
+  headerIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
 
   headerTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 18,
-    color: '#21164D',
   },
 
   profileCard: {
-    minHeight: 92,
-    borderRadius: 18,
+    borderRadius: 22,
     backgroundColor: '#7B4DFF',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 18,
-    marginBottom: 18,
+    paddingVertical: 18,
+    marginBottom: 16,
     shadowColor: '#7B4DFF',
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
-    elevation: 5,
+    elevation: 8,
   },
 
   avatar: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#FFFFFF',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.4)',
   },
 
-  name: {
+  profileName: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 15,
     color: '#FFFFFF',
   },
 
-  email: {
+  profileEmail: {
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
-    color: '#E8DEFF',
+    color: 'rgba(255,255,255,0.75)',
     marginTop: 2,
   },
 
@@ -337,7 +421,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -345,125 +429,162 @@ const styles = StyleSheet.create({
   quickInfo: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 18,
+    marginBottom: 16,
   },
 
   infoBox: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 14,
-    elevation: 1,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+  },
+
+  infoIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
 
   infoTitle: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 12,
-    color: '#6D6A80',
-    marginTop: 6,
+    fontFamily: 'Poppins-Regular',
+    fontSize: 11,
   },
 
   infoValue: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
-    color: '#21164D',
+    marginTop: 2,
   },
 
-  menu: {
-    gap: 13,
+  menuSection: {
+    borderRadius: 20,
+    paddingVertical: 4,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
   },
 
   menuItem: {
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    elevation: 1,
+    paddingVertical: 14,
+    gap: 12,
   },
 
-  menuLeft: {
-    flexDirection: 'row',
+  menuIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
-    gap: 13,
+    justifyContent: 'center',
   },
 
   menuText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 13,
-    color: '#46415F',
+    flex: 1,
+  },
+
+  divider: {
+    height: 1,
+    marginLeft: 46,
   },
 
   infoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 16,
-    gap: 14,
-    marginTop: -4,
+    borderRadius: 16,
+    padding: 14,
+    gap: 12,
+    marginBottom: 4,
   },
 
   detail: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
 
   detailLabel: {
     fontFamily: 'Poppins-Regular',
-    fontSize: 11,
-    color: '#8B879D',
+    fontSize: 10,
   },
 
   detailValue: {
     fontFamily: 'Poppins-Medium',
     fontSize: 13,
-    color: '#21164D',
   },
 
   logoutButton: {
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
+    height: 54,
+    borderRadius: 18,
+    paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginTop: 18,
-    marginBottom: 36,
+    marginBottom: 40,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
   },
 
   logoutText: {
-    fontFamily: 'Poppins-Medium',
+    fontFamily: 'Poppins-SemiBold',
     fontSize: 13,
     color: '#FF4D4D',
+    flex: 1,
   },
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(33, 22, 77, 0.35)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'flex-end',
   },
 
   modalBox: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     padding: 24,
     gap: 14,
+  },
+
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 8,
   },
 
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 4,
   },
 
   modalTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 18,
-    color: '#21164D',
+  },
+
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   inputArea: {
@@ -473,25 +594,29 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontFamily: 'Poppins-Medium',
     fontSize: 12,
-    color: '#6D6A80',
   },
 
   input: {
-    height: 48,
+    height: 50,
     borderRadius: 14,
-    backgroundColor: '#F8F7FC',
+    borderWidth: 1,
     paddingHorizontal: 14,
     fontFamily: 'Poppins-Regular',
-    color: '#21164D',
+    fontSize: 13,
   },
 
   saveButton: {
-    height: 52,
+    height: 54,
     borderRadius: 16,
     backgroundColor: '#7B4DFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: 6,
+    shadowColor: '#7B4DFF',
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
 
   saveText: {
