@@ -1,8 +1,8 @@
+import FeedbackModal from '@/components/FeedbackModal';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -66,6 +66,9 @@ export default function Responsaveis() {
 
   const [selecionado, setSelecionado] = useState<Responsavel | null>(null);
 
+  const [responsavelParaExcluir, setResponsavelParaExcluir] = useState<Responsavel | null>(null);
+  const [feedbackSucesso, setFeedbackSucesso] = useState(false);
+
   function voltar() {
     if (router.canGoBack()) router.back();
     else router.replace('/(settings)/responsaveis');
@@ -104,18 +107,20 @@ export default function Responsaveis() {
     );
   }
 
-  function excluirResponsavel(id: number) {
-    Alert.alert('Excluir responsável', 'Deseja remover este responsável?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: () => {
-          setResponsaveis((lista) => lista.filter((item) => item.id !== id));
-          setSelecionado(null);
-        },
-      },
-    ]);
+  function solicitarExclusao(responsavel: Responsavel) {
+    setResponsavelParaExcluir(responsavel);
+  }
+
+  function confirmarExclusao() {
+    if (!responsavelParaExcluir) return;
+
+    setResponsaveis((lista) =>
+      lista.filter((item) => item.id !== responsavelParaExcluir.id)
+    );
+
+    setSelecionado(null);
+    setResponsavelParaExcluir(null);
+    setFeedbackSucesso(true);
   }
 
   return (
@@ -244,7 +249,7 @@ export default function Responsaveis() {
 
                 <TouchableOpacity
                   style={[styles.deleteButton, { backgroundColor: theme.backgroundSoft }]}
-                  onPress={() => excluirResponsavel(selecionado.id)}
+                  onPress={() => solicitarExclusao(selecionado)}
                 >
                   <Ionicons name="trash-outline" size={18} color="#FF4D4D" />
                   <Text style={styles.deleteText}>Excluir responsável</Text>
@@ -254,6 +259,29 @@ export default function Responsaveis() {
           </View>
         </View>
       </Modal>
+
+      <FeedbackModal
+        visible={!!responsavelParaExcluir}
+        title="Excluir responsável"
+        message={`Deseja remover ${responsavelParaExcluir?.nome ?? 'este responsável'}? Essa ação não poderá ser desfeita.`}
+    
+        confirmText="Excluir"
+        cancelText="Cancelar"
+        showCancel
+        theme={theme}
+        onCancel={() => setResponsavelParaExcluir(null)}
+        onConfirm={confirmarExclusao}
+      />
+
+      <FeedbackModal
+        visible={feedbackSucesso}
+        title="Responsável excluído"
+        message="O responsável foi removido com sucesso da sua lista."
+        type="success"
+        confirmText="Entendi"
+        theme={theme}
+        onConfirm={() => setFeedbackSucesso(false)}
+      />
     </View>
   );
 }

@@ -1,3 +1,4 @@
+import FeedbackModal from '@/components/FeedbackModal';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -23,6 +24,24 @@ const EMOJIS = [
   '🧑🏻', '🧑🏼', '🧑🏽', '🧑🏾', '🧑🏿',
 ];
 
+const PERMISSOES = [
+  {
+    titulo: 'Visualizar',
+    descricao: 'Pode visualizar informações e receber alertas.',
+    icon: 'eye-outline',
+  },
+  {
+    titulo: 'Receber alertas',
+    descricao: 'Recebe alertas importantes, sem acessar o app.',
+    icon: 'notifications-outline',
+  },
+  {
+    titulo: 'Controle total',
+    descricao: 'Acesso completo para visualizar e gerenciar tudo.',
+    icon: 'shield-checkmark-outline',
+  },
+];
+
 export default function AdicionarResponsavel() {
   const theme = useTheme();
 
@@ -30,21 +49,34 @@ export default function AdicionarResponsavel() {
   const [compartilharLocalizacao, setCompartilharLocalizacao] = useState(true);
   const [emoji, setEmoji] = useState('👩🏻');
   const [modalEmoji, setModalEmoji] = useState(false);
+  const [modalPermissao, setModalPermissao] = useState(false);
+
+  const [conviteEnviado, setConviteEnviado] = useState(false);
 
   function voltar() {
     if (router.canGoBack()) router.back();
     else router.replace('/(settings)/responsaveis');
   }
 
+  const permissaoAtual = PERMISSOES.find((item) => item.titulo === tipoAcesso);
+
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.backgroundSoft }]} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.backgroundSoft }]}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.header}>
-        <TouchableOpacity onPress={voltar} style={[styles.backButton, { backgroundColor: theme.backgroundCard }]}>
+        <TouchableOpacity
+          onPress={voltar}
+          style={[styles.backButton, { backgroundColor: theme.backgroundCard }]}
+        >
           <Ionicons name="chevron-back" size={22} color={theme.text} />
         </TouchableOpacity>
 
         <View style={styles.headerText}>
-          <Text style={[styles.title, { color: theme.text }]}>Adicionar responsável</Text>
+          <Text style={[styles.title, { color: theme.text }]}>
+            Adicionar responsável
+          </Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
             Convide familiares ou cuidadores para receber alertas importantes.
           </Text>
@@ -72,34 +104,30 @@ export default function AdicionarResponsavel() {
       <Input label="Telefone" icon="call-outline" placeholder="(00) 00000-0000" theme={theme} />
       <Input label="E-mail (opcional)" icon="mail-outline" placeholder="email@exemplo.com" theme={theme} />
 
-      <Text style={[styles.sectionTitle, { color: theme.text }]}>Tipo de acesso</Text>
+      <Text style={[styles.sectionTitle, { color: theme.text }]}>
+        Tipo de acesso
+      </Text>
 
-      <AccessOption
-        active={tipoAcesso === 'Visualizar'}
-        icon="eye-outline"
-        title="Visualizar"
-        subtitle="Pode visualizar informações e receber alertas."
-        onPress={() => setTipoAcesso('Visualizar')}
-        theme={theme}
-      />
+      <TouchableOpacity
+        style={[styles.permissionSelect, { backgroundColor: theme.backgroundCard, borderColor: theme.borderInput }]}
+        onPress={() => setModalPermissao(true)}
+        activeOpacity={0.8}
+      >
+        <View style={[styles.permissionIcon, { backgroundColor: theme.accentSoft }]}>
+          <Ionicons name={permissaoAtual?.icon as any} size={20} color="#7B4DFF" />
+        </View>
 
-      <AccessOption
-        active={tipoAcesso === 'Receber alertas'}
-        icon="notifications-outline"
-        title="Receber alertas"
-        subtitle="Recebe alertas importantes, sem acessar o app."
-        onPress={() => setTipoAcesso('Receber alertas')}
-        theme={theme}
-      />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.permissionSelectTitle, { color: theme.text }]}>
+            {tipoAcesso}
+          </Text>
+          <Text style={[styles.permissionSelectSubtitle, { color: theme.textSecondary }]}>
+            Toque para alterar a permissão
+          </Text>
+        </View>
 
-      <AccessOption
-        active={tipoAcesso === 'Controle total'}
-        icon="shield-checkmark-outline"
-        title="Controle total"
-        subtitle="Acesso completo para visualizar e gerenciar tudo."
-        onPress={() => setTipoAcesso('Controle total')}
-        theme={theme}
-      />
+        <Ionicons name="chevron-down" size={20} color={theme.textMuted} />
+      </TouchableOpacity>
 
       <View style={[styles.locationCard, { backgroundColor: theme.backgroundCard }]}>
         <View style={[styles.locationIcon, { backgroundColor: theme.accentSoft }]}>
@@ -107,7 +135,9 @@ export default function AdicionarResponsavel() {
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={[styles.locationTitle, { color: theme.text }]}>Compartilhar localização</Text>
+          <Text style={[styles.locationTitle, { color: theme.text }]}>
+            Compartilhar localização
+          </Text>
           <Text style={[styles.locationSubtitle, { color: theme.textSecondary }]}>
             Permitir que este responsável veja a localização.
           </Text>
@@ -121,19 +151,24 @@ export default function AdicionarResponsavel() {
         />
       </View>
 
-      <TouchableOpacity style={styles.inviteButton} onPress={voltar}>
+      <TouchableOpacity
+        style={styles.inviteButton}
+        onPress={() => setConviteEnviado(true)}
+      >
         <Text style={styles.inviteText}>Convidar responsável</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={voltar}>
-        <Text style={[styles.cancelText, { color: '#7B4DFF' }]}>Cancelar</Text>
+        <Text style={styles.cancelText}>Cancelar</Text>
       </TouchableOpacity>
 
       <Modal visible={modalEmoji} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.emojiModal, { backgroundColor: theme.backgroundCard }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>Escolha um avatar</Text>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>
+                Escolha um avatar
+              </Text>
 
               <TouchableOpacity onPress={() => setModalEmoji(false)}>
                 <Ionicons name="close" size={24} color={theme.text} />
@@ -161,6 +196,73 @@ export default function AdicionarResponsavel() {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={modalPermissao} transparent animationType="fade">
+        <View style={styles.permissionOverlay}>
+          <View style={[styles.permissionModal, { backgroundColor: theme.backgroundCard }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>
+                Escolha a permissão
+              </Text>
+
+              <TouchableOpacity onPress={() => setModalPermissao(false)}>
+                <Ionicons name="close" size={24} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+
+            {PERMISSOES.map((item) => {
+              const ativo = tipoAcesso === item.titulo;
+
+              return (
+                <TouchableOpacity
+                  key={item.titulo}
+                  style={[
+                    styles.permissionItem,
+                    {
+                      backgroundColor: ativo ? theme.accentSoft : theme.backgroundSoft,
+                      borderColor: ativo ? '#7B4DFF' : 'transparent',
+                    },
+                  ]}
+                  onPress={() => {
+                    setTipoAcesso(item.titulo);
+                    setModalPermissao(false);
+                  }}
+                >
+                  <View style={styles.permissionIcon}>
+                    <Ionicons name={item.icon as any} size={20} color="#7B4DFF" />
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.permissionName, { color: theme.text }]}>
+                      {item.titulo}
+                    </Text>
+                    <Text style={[styles.permissionDescription, { color: theme.textSecondary }]}>
+                      {item.descricao}
+                    </Text>
+                  </View>
+
+                  {ativo && (
+                    <Ionicons name="checkmark-circle" size={24} color="#7B4DFF" />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </Modal>
+
+      <FeedbackModal
+        visible={conviteEnviado}
+        title="Convite enviado"
+        message="O convite foi preparado com sucesso. O responsável receberá as instruções para acessar o InfantCare."
+        type="success"
+        confirmText="Concluir"
+        theme={theme}
+        onConfirm={() => {
+          setConviteEnviado(false);
+          voltar();
+        }}
+      />
     </ScrollView>
   );
 }
@@ -181,32 +283,6 @@ function Input({ label, icon, placeholder, arrow, theme }: any) {
         {arrow && <Ionicons name="chevron-down" size={18} color={theme.textMuted} />}
       </View>
     </View>
-  );
-}
-
-function AccessOption({ active, icon, title, subtitle, onPress, theme }: any) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[
-        styles.accessCard,
-        { backgroundColor: theme.backgroundCard, borderColor: theme.borderInput },
-        active && styles.accessCardActive,
-      ]}
-    >
-      <View style={[styles.radio, { borderColor: active ? '#7B4DFF' : theme.border }]}>
-        {active && <View style={styles.radioDot} />}
-      </View>
-
-      <View style={[styles.accessIcon, { backgroundColor: theme.accentSoft }]}>
-        <Ionicons name={icon} size={19} color="#8B5CF6" />
-      </View>
-
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.accessTitle, { color: theme.text }]}>{title}</Text>
-        <Text style={[styles.accessSubtitle, { color: theme.textSecondary }]}>{subtitle}</Text>
-      </View>
-    </TouchableOpacity>
   );
 }
 
@@ -314,54 +390,33 @@ const styles = StyleSheet.create({
     marginBottom: 9,
   },
 
-  accessCard: {
+  permissionSelect: {
     minHeight: 58,
     borderRadius: 14,
     borderWidth: 1,
     paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 16,
   },
 
-  accessCardActive: {
-    borderColor: '#8B5CF6',
-    borderWidth: 2,
-  },
-
-  radio: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1.5,
+  permissionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3EDFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 12,
   },
 
-  radioDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#7B4DFF',
-  },
-
-  accessIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-
-  accessTitle: {
+  permissionSelectTitle: {
     fontFamily: 'Poppins-SemiBold',
-    fontSize: 12,
+    fontSize: 13,
   },
 
-  accessSubtitle: {
+  permissionSelectSubtitle: {
     fontFamily: 'Poppins-Regular',
     fontSize: 10,
     marginTop: 2,
@@ -417,6 +472,7 @@ const styles = StyleSheet.create({
   cancelText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 13,
+    color: '#7B4DFF',
     textAlign: 'center',
     marginBottom: 40,
   },
@@ -467,5 +523,39 @@ const styles = StyleSheet.create({
 
   emojiText: {
     fontSize: 28,
+  },
+
+  permissionOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(33, 22, 77, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+
+  permissionModal: {
+    width: '100%',
+    borderRadius: 24,
+    padding: 22,
+  },
+
+  permissionItem: {
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    borderWidth: 1.5,
+  },
+
+  permissionName: {
+    fontSize: 14,
+    fontFamily: 'Poppins-SemiBold',
+  },
+
+  permissionDescription: {
+    marginTop: 3,
+    fontSize: 11,
+    fontFamily: 'Poppins-Regular',
   },
 });
