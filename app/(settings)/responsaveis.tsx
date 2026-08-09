@@ -1,7 +1,8 @@
 import FeedbackModal from '@/components/FeedbackModal';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Easing } from 'react-native';
 import {
   Modal,
   ScrollView,
@@ -27,6 +28,21 @@ type Responsavel = {
 
 export default function Responsaveis() {
   const theme = useTheme();
+  const pageAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(pageAnim, {
+      toValue: 1,
+      duration: 520,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [pageAnim]);
+
+  const pageStyle = {
+    opacity: pageAnim,
+    transform: [{ translateY: pageAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
+  };
 
   const [responsaveis, setResponsaveis] = useState<Responsavel[]>([
     {
@@ -143,7 +159,11 @@ export default function Responsaveis() {
           </TouchableOpacity>
         </View>
 
-        {responsaveis.map((item) => (
+        {responsaveis.map((item, index) => (
+          <Animated.View
+            key={`animated-${item.id}`}
+            style={[pageStyle, { marginBottom: 14 }]}
+          >
           <TouchableOpacity
             key={item.id}
             style={[styles.card, { backgroundColor: theme.backgroundCard }]}
@@ -187,8 +207,10 @@ export default function Responsaveis() {
 
             <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
           </TouchableOpacity>
+          </Animated.View>
         ))}
 
+        <Animated.View style={pageStyle}>
         <TouchableOpacity
           style={[styles.addBox, { borderColor: '#A678FF', backgroundColor: theme.backgroundCard }]}
           onPress={() => router.push('/(settings)/adicionar-responsavel')}
@@ -202,6 +224,7 @@ export default function Responsaveis() {
             Convide familiares ou cuidadores para receber alertas importantes.
           </Text>
         </TouchableOpacity>
+        </Animated.View>
       </ScrollView>
 
       <Modal visible={!!selecionado} transparent animationType="slide">

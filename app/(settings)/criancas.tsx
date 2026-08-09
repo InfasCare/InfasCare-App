@@ -1,7 +1,8 @@
 import FeedbackModal from '@/components/FeedbackModal';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Easing } from 'react-native';
 import {
   Modal,
   ScrollView,
@@ -41,6 +42,21 @@ const RESPONSAVEIS = [
 
 export default function Criancas() {
   const theme = useTheme();
+  const pageAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(pageAnim, {
+      toValue: 1,
+      duration: 520,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [pageAnim]);
+
+  const pageStyle = {
+    opacity: pageAnim,
+    transform: [{ translateY: pageAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
+  };
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
@@ -152,12 +168,10 @@ export default function Criancas() {
         </View>
 
         {criancas.map((crianca) => (
-          <View
+          <Animated.View
             key={crianca.id}
-            style={[
-              styles.childCard,
-              { backgroundColor: theme.backgroundCard },
-            ]}
+            style={[pageStyle, styles.childCard, { backgroundColor: theme.backgroundCard }]}
+          >
           >
             <View style={styles.childTop}>
               <View
@@ -299,7 +313,7 @@ export default function Criancas() {
                 </Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </Animated.View>
         ))}
 
         <TouchableOpacity

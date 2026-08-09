@@ -1,18 +1,30 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Easing,
+  LayoutAnimation,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  UIManager,
   View,
 } from 'react-native';
 import { useTheme } from '@/hooks/use-theme-color';
+
+if (Platform.OS === 'android') {
+  const AndroidUIManager = UIManager as unknown as {
+    setLayoutAnimationEnabled?: (enabled: boolean) => void;
+  };
+
+  AndroidUIManager.setLayoutAnimationEnabled?.(true);
+}
 
 type PerfilData = {
   nome: string;
@@ -36,121 +48,219 @@ export default function Perfil() {
   const [editando, setEditando] = useState(false);
   const [form, setForm] = useState(perfil);
   const [mostrarInfo, setMostrarInfo] = useState(false);
+  const [mostrarToast, setMostrarToast] = useState(false);
+
+  const modalAnim = useRef(new Animated.Value(0)).current;
+  const toastAnim = useRef(new Animated.Value(0)).current;
 
   function abrirEdicao() {
     setForm(perfil);
     setEditando(true);
   }
 
+  function fecharEdicao() {
+    Animated.timing(modalAnim, {
+      toValue: 0,
+      duration: 200,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => setEditando(false));
+  }
+
   function salvarPerfil() {
     setPerfil(form);
-    setEditando(false);
+    fecharEdicao();
+
+    setMostrarToast(true);
+    toastAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(toastAnim, {
+        toValue: 1,
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.delay(1500),
+      Animated.timing(toastAnim, {
+        toValue: 0,
+        duration: 260,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(() => setMostrarToast(false));
+  }
+
+  function alternarInfo() {
+    LayoutAnimation.configureNext(
+      LayoutAnimation.create(
+        260,
+        LayoutAnimation.Types.easeInEaseOut,
+        LayoutAnimation.Properties.opacity,
+      ),
+    );
+    setMostrarInfo((atual) => !atual);
   }
 
   function sair() {
     router.replace('/(auth)');
   }
 
+  useEffect(() => {
+    if (editando) {
+      modalAnim.setValue(0);
+      Animated.spring(modalAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        friction: 8,
+        tension: 65,
+      }).start();
+    }
+  }, [editando]);
+
+  const modalTranslateY = modalAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [56, 0],
+  });
+
+  const toastTranslateY = toastAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-40, 0],
+  });
+
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.backgroundSoft }]} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={24} color={theme.text} />
-        </TouchableOpacity>
+    <View style={{ flex: 1, backgroundColor: theme.backgroundSoft }}>
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        <FadeSlideIn delay={0}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()}>
+              <Ionicons name="chevron-back" size={24} color={theme.text} />
+            </TouchableOpacity>
 
-        <Text style={[styles.headerTitle, { color: theme.text }]}>Perfil</Text>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>Perfil</Text>
 
-        <TouchableOpacity onPress={abrirEdicao}>
-          <Ionicons name="pencil" size={20} color={theme.text} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.profileCard}>
-        <View style={styles.avatar}>
-          <Ionicons name="person" size={34} color="#8B5CF6" />
-        </View>
-
-        <View style={{ flex: 1 }}>
-          <Text style={styles.name}>{perfil.nome}</Text>
-          <Text style={styles.email}>{perfil.email}</Text>
-        </View>
-
-        <TouchableOpacity style={styles.editCircle} onPress={abrirEdicao}>
-          <Ionicons name="create-outline" size={18} color="#7B4DFF" />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.quickInfo}>
-        <InfoBox icon="shield-checkmark-outline" title="Status" value="Seguro" theme={theme} />
-        <InfoBox icon="heart-outline" title="Conta" value="Ativa" theme={theme} />
-      </View>
-
-      <View style={styles.menu}>
-        <MenuItem
-          icon="person-outline"
-          title="Meu perfil"
-          onPress={() => setMostrarInfo(!mostrarInfo)}
-          theme={theme}
-        />
-
-        {mostrarInfo && (
-          <View style={[styles.infoCard, { backgroundColor: theme.backgroundCard }]}>
-            <Detail icon="person" label="Nome" value={perfil.nome} theme={theme} />
-            <Detail icon="mail" label="E-mail" value={perfil.email} theme={theme} />
-            <Detail icon="call" label="Telefone" value={perfil.telefone} theme={theme} />
-            <Detail icon="location" label="Endereço" value={perfil.endereco} theme={theme} />
-            <Detail icon="star" label="Tipo" value={perfil.responsavel} theme={theme} />
+            <TouchableOpacity onPress={abrirEdicao}>
+              <Ionicons name="pencil" size={20} color={theme.text} />
+            </TouchableOpacity>
           </View>
-        )}
+        </FadeSlideIn>
 
-        <MenuItem
-          icon="people-outline"
-          title="Crianças cadastradas"
-          onPress={() => router.push('/(settings)/criancas')}
-          theme={theme}
-        />
+        <FadeSlideIn delay={70}>
+          <View style={styles.profileCard}>
+            <AnimatedAvatar />
 
-        <MenuItem
-          icon="people-circle-outline"
-          title="Responsáveis cadastrados"
-          onPress={() => router.push('/(settings)/responsaveis')}
-          theme={theme}
-        />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.name}>{perfil.nome}</Text>
+              <Text style={styles.email}>{perfil.email}</Text>
+            </View>
 
-        <MenuItem
-          icon="bluetooth-outline"
-          title="Dispositivos conectados"
-          onPress={() => router.push('/(settings)/dispositivos')}
-          theme={theme}
-        />
+            <PressScale onPress={abrirEdicao} style={styles.editCircle}>
+              <Ionicons name="create-outline" size={18} color="#7B4DFF" />
+            </PressScale>
+          </View>
+        </FadeSlideIn>
 
-        <MenuItem
-          icon="settings-outline"
-          title="Configurações"
-          onPress={() => router.push('/(settings)/configuracoes')}
-          theme={theme}
-        />
+        <View style={styles.quickInfo}>
+          <FadeSlideIn delay={140} style={{ flex: 1 }}>
+            <InfoBox icon="shield-checkmark-outline" title="Status" value="Seguro" theme={theme} />
+          </FadeSlideIn>
 
-        <MenuItem
-          icon="information-circle-outline"
-          title="Sobre o aplicativo"
-          onPress={() => router.push('/(settings)/sobre')}
-          theme={theme}
-        />
-      </View>
+          <FadeSlideIn delay={200} style={{ flex: 1 }}>
+            <InfoBox icon="heart-outline" title="Conta" value="Ativa" theme={theme} />
+          </FadeSlideIn>
+        </View>
 
-      <TouchableOpacity style={[styles.logoutButton, { backgroundColor: theme.backgroundCard }]} onPress={sair}>
-        <Ionicons name="log-out-outline" size={19} color="#FF4D4D" />
-        <Text style={styles.logoutText}>Sair</Text>
-      </TouchableOpacity>
+        <View style={styles.menu}>
+          <FadeSlideIn delay={250}>
+            <MenuItem
+              icon="person-outline"
+              title="Meu perfil"
+              onPress={alternarInfo}
+              theme={theme}
+              expanded={mostrarInfo}
+            />
+          </FadeSlideIn>
 
-      <Modal visible={editando} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: theme.backgroundCard }]}>
+          {mostrarInfo && (
+            <View style={[styles.infoCard, { backgroundColor: theme.backgroundCard }]}>
+              <Detail icon="person" label="Nome" value={perfil.nome} theme={theme} />
+              <Detail icon="mail" label="E-mail" value={perfil.email} theme={theme} />
+              <Detail icon="call" label="Telefone" value={perfil.telefone} theme={theme} />
+              <Detail icon="location" label="Endereço" value={perfil.endereco} theme={theme} />
+              <Detail icon="star" label="Tipo" value={perfil.responsavel} theme={theme} />
+            </View>
+          )}
+
+          <FadeSlideIn delay={300}>
+            <MenuItem
+              icon="people-outline"
+              title="Crianças cadastradas"
+              onPress={() => router.push('/(settings)/criancas')}
+              theme={theme}
+            />
+          </FadeSlideIn>
+
+          <FadeSlideIn delay={340}>
+            <MenuItem
+              icon="people-circle-outline"
+              title="Responsáveis cadastrados"
+              onPress={() => router.push('/(settings)/responsaveis')}
+              theme={theme}
+            />
+          </FadeSlideIn>
+
+          <FadeSlideIn delay={380}>
+            <MenuItem
+              icon="bluetooth-outline"
+              title="Dispositivos conectados"
+              onPress={() => router.push('/(settings)/dispositivos')}
+              theme={theme}
+            />
+          </FadeSlideIn>
+
+          <FadeSlideIn delay={420}>
+            <MenuItem
+              icon="settings-outline"
+              title="Configurações"
+              onPress={() => router.push('/(settings)/configuracoes')}
+              theme={theme}
+            />
+          </FadeSlideIn>
+
+          <FadeSlideIn delay={460}>
+            <MenuItem
+              icon="information-circle-outline"
+              title="Sobre o aplicativo"
+              onPress={() => router.push('/(settings)/sobre')}
+              theme={theme}
+            />
+          </FadeSlideIn>
+        </View>
+
+        <FadeSlideIn delay={510}>
+          <PressScale onPress={sair} style={[styles.logoutButton, { backgroundColor: theme.backgroundCard }]} scaleTo={0.97}>
+            <Ionicons name="log-out-outline" size={19} color="#FF4D4D" />
+            <Text style={styles.logoutText}>Sair</Text>
+          </PressScale>
+        </FadeSlideIn>
+      </ScrollView>
+
+      <Modal visible={editando} transparent animationType="none" onRequestClose={fecharEdicao}>
+        <Animated.View style={[styles.modalOverlay, { opacity: modalAnim }]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={fecharEdicao} />
+
+          <Animated.View
+            style={[
+              styles.modalBox,
+              { backgroundColor: theme.backgroundCard, transform: [{ translateY: modalTranslateY }] },
+            ]}
+          >
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>Editar perfil</Text>
 
-              <TouchableOpacity onPress={() => setEditando(false)}>
+              <TouchableOpacity onPress={fecharEdicao}>
                 <Ionicons name="close" size={24} color={theme.text} />
               </TouchableOpacity>
             </View>
@@ -183,13 +293,128 @@ export default function Perfil() {
               theme={theme}
             />
 
-            <TouchableOpacity style={styles.saveButton} onPress={salvarPerfil}>
+            <PressScale onPress={salvarPerfil} style={styles.saveButton} scaleTo={0.97}>
               <Text style={styles.saveText}>Salvar alterações</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+            </PressScale>
+          </Animated.View>
+        </Animated.View>
       </Modal>
-    </ScrollView>
+
+      {mostrarToast && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.toast,
+            {
+              backgroundColor: theme.backgroundCard,
+              opacity: toastAnim,
+              transform: [{ translateY: toastTranslateY }],
+            },
+          ]}
+        >
+          <View style={styles.toastIcon}>
+            <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+          </View>
+          <Text style={[styles.toastText, { color: theme.text }]}>Perfil atualizado</Text>
+        </Animated.View>
+      )}
+    </View>
+  );
+}
+
+function FadeSlideIn({
+  children,
+  delay = 0,
+  style,
+}: {
+  children: React.ReactNode;
+  delay?: number;
+  style?: any;
+}) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 460,
+      delay,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] });
+
+  return (
+    <Animated.View style={[style, { opacity: anim, transform: [{ translateY }] }]}>
+      {children}
+    </Animated.View>
+  );
+}
+
+function PressScale({
+  children,
+  onPress,
+  style,
+  scaleTo = 0.96,
+}: {
+  children: React.ReactNode;
+  onPress?: () => void;
+  style?: any;
+  scaleTo?: number;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  return (
+    <Pressable
+      onPressIn={() =>
+        Animated.spring(scale, {
+          toValue: scaleTo,
+          useNativeDriver: true,
+          friction: 6,
+        }).start()
+      }
+      onPressOut={() =>
+        Animated.spring(scale, {
+          toValue: 1,
+          useNativeDriver: true,
+          friction: 5,
+        }).start()
+      }
+      onPress={onPress}
+    >
+      <Animated.View style={[style, { transform: [{ scale }] }]}>{children}</Animated.View>
+    </Pressable>
+  );
+}
+
+function AnimatedAvatar() {
+  const pulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(pulse, {
+        toValue: 1,
+        duration: 1800,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  const scale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.7] });
+  const opacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0] });
+
+  return (
+    <View style={styles.avatarWrapper}>
+      <Animated.View style={[styles.avatarPulse, { opacity, transform: [{ scale }] }]} />
+      <View style={styles.avatar}>
+        <Ionicons name="person" size={34} color="#8B5CF6" />
+      </View>
+      <View style={styles.onlineDot} />
+    </View>
   );
 }
 
@@ -198,13 +423,28 @@ function MenuItem({
   title,
   onPress,
   theme,
+  expanded,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   onPress?: () => void;
   theme: any;
+  expanded?: boolean;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
+  const rotate = useRef(new Animated.Value(expanded ? 1 : 0)).current;
+
+  useEffect(() => {
+    if (expanded === undefined) return;
+
+    Animated.spring(rotate, {
+      toValue: expanded ? 1 : 0,
+      useNativeDriver: true,
+      friction: 8,
+    }).start();
+  }, [expanded]);
+
+  const rotateDeg = rotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '90deg'] });
 
   return (
     <Pressable
@@ -228,7 +468,9 @@ function MenuItem({
           <Text style={[styles.menuText, { color: theme.text }]}>{title}</Text>
         </View>
 
-        <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+        <Animated.View style={{ transform: [{ rotate: rotateDeg }] }}>
+          <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+        </Animated.View>
       </Animated.View>
     </Pressable>
   );
@@ -287,15 +529,36 @@ function Input({
   onChangeText: (text: string) => void;
   theme: any;
 }) {
+  const [focado, setFocado] = useState(false);
+  const focusAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(focusAnim, {
+      toValue: focado ? 1 : 0,
+      duration: 180,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: false,
+    }).start();
+  }, [focado]);
+
+  const borderColor = focusAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.borderInput ?? 'transparent', '#7B4DFF'],
+  });
+
   return (
     <View style={styles.inputArea}>
       <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>{label}</Text>
-      <TextInput
-        style={[styles.input, { backgroundColor: theme.inputBg, color: theme.text }]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholderTextColor={theme.textMuted}
-      />
+      <Animated.View style={[styles.inputBorder, { borderColor }]}>
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.inputBg, color: theme.text }]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholderTextColor={theme.textMuted}
+          onFocus={() => setFocado(true)}
+          onBlur={() => setFocado(false)}
+        />
+      </Animated.View>
     </View>
   );
 }
@@ -334,6 +597,22 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
 
+  avatarWrapper: {
+    width: 54,
+    height: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+
+  avatarPulse: {
+    position: 'absolute',
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#FFFFFF',
+  },
+
   avatar: {
     width: 54,
     height: 54,
@@ -341,7 +620,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+  },
+
+  onlineDot: {
+    position: 'absolute',
+    right: 1,
+    bottom: 1,
+    width: 13,
+    height: 13,
+    borderRadius: 7,
+    backgroundColor: '#34D399',
+    borderWidth: 2,
+    borderColor: '#7B4DFF',
   },
 
   name: {
@@ -488,9 +778,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 
+  inputBorder: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+
   input: {
     height: 48,
-    borderRadius: 14,
+    borderRadius: 12.5,
     paddingHorizontal: 14,
     fontFamily: 'Poppins-Regular',
   },
@@ -508,5 +803,36 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
     color: '#FFFFFF',
+  },
+
+  toast: {
+    position: 'absolute',
+    top: 54,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 30,
+    shadowColor: '#21164D',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+
+  toastIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#34D399',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  toastText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12,
   },
 });

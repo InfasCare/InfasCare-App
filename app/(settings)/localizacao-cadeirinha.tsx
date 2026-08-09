@@ -2,7 +2,7 @@ import FeedbackModal from '@/components/FeedbackModal';
 import { useTheme } from '@/hooks/use-theme-color';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -12,8 +12,9 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   View,
+  Animated,
+  Easing,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, {
   Marker,
   Polyline,
@@ -87,12 +88,22 @@ const LOCAIS: Localizacao[] = [
 export default function LocalizacaoCadeirinha() {
   const theme = useTheme();
   const { width, height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
+  const pageAnim = useRef(new Animated.Value(0)).current;
+  const refreshAnim = useRef(new Animated.Value(0)).current;
 
-  const routeModalHeight = Math.min(
-    height - Math.max(insets.top, 20),
-    height * 0.92,
-  );
+  useEffect(() => {
+    Animated.timing(pageAnim, {
+      toValue: 1,
+      duration: 550,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [pageAnim]);
+
+  const pageStyle = {
+    opacity: pageAnim,
+    transform: [{ translateY: pageAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
+  };
 
   const [localAtual, setLocalAtual] = useState(LOCAIS[0]);
   const [loading, setLoading] = useState(false);
@@ -165,6 +176,7 @@ export default function LocalizacaoCadeirinha() {
 
   function recarregarLocalizacao() {
     setLoading(true);
+    Animated.timing(refreshAnim, { toValue: 1, duration: 650, easing: Easing.linear, useNativeDriver: true }).start();
 
     setTimeout(() => {
       const locaisDiferentes = LOCAIS.filter(
@@ -180,6 +192,7 @@ export default function LocalizacaoCadeirinha() {
 
       setLocalAtual(novaLocalizacao);
       setLoading(false);
+      refreshAnim.setValue(0);
 
       setInformacao({
         visible: true,
@@ -246,17 +259,31 @@ export default function LocalizacaoCadeirinha() {
                 { backgroundColor: theme.backgroundCard },
               ]}
             >
-              <Ionicons
-                name="refresh"
-                size={21}
-                color="#7B4DFF"
-              />
+              <Animated.View
+                style={{
+                  transform: [
+                    {
+                      rotate: refreshAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0deg', '360deg'],
+                      }),
+                    },
+                  ],
+                }}
+              >
+                <Ionicons
+                  name="refresh"
+                  size={21}
+                  color="#7B4DFF"
+                />
+              </Animated.View>
             </TouchableOpacity>
           </View>
 
-          <View
+          <Animated.View
             style={[
               styles.mapCard,
+              pageStyle,
               {
                 height: mapHeight,
                 backgroundColor: theme.backgroundCard,
@@ -366,11 +393,12 @@ export default function LocalizacaoCadeirinha() {
                 </Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </Animated.View>
 
-          <View
+          <Animated.View
             style={[
               styles.statusCard,
+              pageStyle,
               { backgroundColor: theme.backgroundCard },
             ]}
           >
@@ -410,7 +438,7 @@ export default function LocalizacaoCadeirinha() {
               value={localAtual.tempo}
               theme={theme}
             />
-          </View>
+          </Animated.View>
         </View>
       </ScrollView>
 
@@ -496,8 +524,7 @@ export default function LocalizacaoCadeirinha() {
               styles.routeModal,
               {
                 backgroundColor: theme.backgroundCard,
-                height: routeModalHeight,
-                paddingBottom: Math.max(insets.bottom, 12),
+                maxHeight: height * 0.9,
               },
             ]}
           >
@@ -540,15 +567,8 @@ export default function LocalizacaoCadeirinha() {
             </View>
 
             <ScrollView
-              style={styles.routeScrollView}
               showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={[
-                styles.routeScroll,
-                {
-                  paddingBottom: Math.max(insets.bottom + 24, 36),
-                },
-              ]}
+              contentContainerStyle={styles.routeScroll}
             >
               <View style={styles.routeMapContainer}>
                 <MapView
@@ -651,17 +671,6 @@ export default function LocalizacaoCadeirinha() {
                 theme={theme}
               />
 
-            </ScrollView>
-
-            <View
-              style={[
-                styles.fixedRouteFooter,
-                {
-                  backgroundColor: theme.backgroundCard,
-                  paddingBottom: Math.max(insets.bottom, 12),
-                },
-              ]}
-            >
               <TouchableOpacity
                 activeOpacity={0.85}
                 style={styles.startRouteButton}
@@ -676,31 +685,17 @@ export default function LocalizacaoCadeirinha() {
                   });
                 }}
               >
-                <View style={styles.startRouteIcon}>
-                  <Ionicons
-                    name="navigate"
-                    size={19}
-                    color="#FFFFFF"
-                  />
-                </View>
-
-                <View style={styles.startRouteContent}>
-                  <Text style={styles.startRouteText}>
-                    Iniciar rota
-                  </Text>
-
-                  <Text style={styles.startRouteSubtext}>
-                    Aproximadamente {localAtual.tempo}
-                  </Text>
-                </View>
-
                 <Ionicons
-                  name="chevron-forward"
+                  name="navigate"
                   size={19}
                   color="#FFFFFF"
                 />
+
+                <Text style={styles.startRouteText}>
+                  Iniciar rota
+                </Text>
               </TouchableOpacity>
-            </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1057,12 +1052,10 @@ const styles = StyleSheet.create({
   },
 
   routeModal: {
-    width: '100%',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     paddingHorizontal: 20,
     paddingTop: 10,
-    overflow: 'hidden',
   },
 
   dragIndicator: {
@@ -1100,18 +1093,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  routeScrollView: {
-    flex: 1,
-  },
-
   routeScroll: {
-    paddingBottom: 24,
-  },
-
-  fixedRouteFooter: {
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E9E4F2',
+    paddingBottom: 28,
   },
 
   routeMapContainer: {
@@ -1220,44 +1203,19 @@ const styles = StyleSheet.create({
   },
 
   startRouteButton: {
-    width: '100%',
-    minHeight: 58,
-    borderRadius: 18,
+    minHeight: 52,
+    borderRadius: 16,
     backgroundColor: '#7B4DFF',
-    paddingHorizontal: 14,
     flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#7B4DFF',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.24,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-
-  startRouteIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.20)',
+    gap: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 11,
-  },
-
-  startRouteContent: {
-    flex: 1,
+    marginTop: 8,
   },
 
   startRouteText: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 13,
     color: '#FFFFFF',
-  },
-
-  startRouteSubtext: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 9,
-    color: '#EDE7FF',
-    marginTop: 1,
   },
 });

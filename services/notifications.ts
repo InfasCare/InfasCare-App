@@ -1,14 +1,5 @@
 import { SettingsState } from '@/contexts/SettingsContext';
-import * as Notifications from 'expo-notifications';
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+import Constants from 'expo-constants';
 
 type InfantCareAlert = {
   title: string;
@@ -17,12 +8,40 @@ type InfantCareAlert = {
   data?: Record<string, unknown>;
 };
 
+function isExpoGo() {
+  return Constants.appOwnership === 'expo';
+}
+
 export async function sendInfantCareAlert(
   alert: InfantCareAlert,
   settings: SettingsState,
 ) {
-  if (!settings.notificationsEnabled) return null;
-  if (alert.critical && !settings.criticalAlertsEnabled) return null;
+  if (!settings.notificationsEnabled) {
+    return null;
+  }
+
+  if (alert.critical && !settings.criticalAlertsEnabled) {
+    return null;
+  }
+
+  if (isExpoGo()) {
+    console.warn(
+      'Notificações não estão disponíveis no Expo Go. Use uma development build.',
+    );
+
+    return null;
+  }
+
+  const Notifications = await import('expo-notifications');
+
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: settings.soundsEnabled,
+      shouldSetBadge: false,
+    }),
+  });
 
   return Notifications.scheduleNotificationAsync({
     content: {
@@ -34,6 +53,7 @@ export async function sendInfantCareAlert(
         ? Notifications.AndroidNotificationPriority.MAX
         : Notifications.AndroidNotificationPriority.DEFAULT,
     },
+
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
       seconds: 1,
@@ -45,5 +65,11 @@ export async function sendInfantCareAlert(
 }
 
 export async function cancelAllInfantCareNotifications() {
+  if (isExpoGo()) {
+    return;
+  }
+
+  const Notifications = await import('expo-notifications');
+
   await Notifications.cancelAllScheduledNotificationsAsync();
 }

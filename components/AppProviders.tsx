@@ -1,5 +1,8 @@
 import { I18nProvider } from '@/contexts/I18nContext';
-import { SettingsProvider, useSettings } from '@/contexts/SettingsContext';
+import {
+  SettingsProvider,
+  useSettings,
+} from '@/contexts/SettingsContext';
 import { StatusBar } from 'expo-status-bar';
 import { ReactNode } from 'react';
 
@@ -13,7 +16,11 @@ function AppStatusBar() {
   );
 }
 
-export default function AppProviders({ children }: { children: ReactNode }) {
+export default function AppProviders({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return (
     <SettingsProvider>
       <I18nProvider>
