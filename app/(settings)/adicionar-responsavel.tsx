@@ -13,6 +13,13 @@ import {
   View,
 } from 'react-native';
 import { useTheme } from '@/hooks/use-theme-color';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  adicionarResponsavel,
+  ALERTAS_PADRAO,
+  emailValido,
+  normalizarTelefoneBR,
+} from '@/services/responsaveis';
 
 const EMOJIS = [
   '👩🏻', '👩🏼', '👩🏽', '👩🏾', '👩🏿',
@@ -44,18 +51,72 @@ const PERMISSOES = [
 
 export default function AdicionarResponsavel() {
   const theme = useTheme();
+  const { user } = useAuth();
+
+  const [nome, setNome] = useState('');
+  const [parentesco, setParentesco] = useState('');
+  const [telefone, setTelefone] = useState('');
+  const [email, setEmail] = useState('');
 
   const [tipoAcesso, setTipoAcesso] = useState('Visualizar');
-  const [compartilharLocalizacao, setCompartilharLocalizacao] = useState(true);
+  const [consentimento, setConsentimento] = useState(false);
+  const [alertaCriticos, setAlertaCriticos] = useState(ALERTAS_PADRAO.criticos);
+  const [alertaPresenca, setAlertaPresenca] = useState(ALERTAS_PADRAO.presenca);
   const [emoji, setEmoji] = useState('👩🏻');
   const [modalEmoji, setModalEmoji] = useState(false);
   const [modalPermissao, setModalPermissao] = useState(false);
 
   const [conviteEnviado, setConviteEnviado] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [erroAlerta, setErroAlerta] = useState({ visible: false, title: '', message: '' });
 
   function voltar() {
     if (router.canGoBack()) router.back();
     else router.replace('/(settings)/responsaveis');
+  }
+
+  async function handleConvidar() {
+    const telefoneE164 = normalizarTelefoneBR(telefone);
+    const aviso = (message: string) =>
+      setErroAlerta({ visible: true, title: 'Verifique os dados', message });
+
+    if (!nome.trim() || !parentesco.trim()) return aviso('Preencha o nome e o parentesco.');
+    if (!telefoneE164) return aviso('Informe um telefone válido com DDD, ex.: (11) 99999-0000.');
+    if (!emailValido(email)) {
+      return aviso('Informe o e-mail da conta do responsável no InfasCare. É por ele que os alertas chegam.');
+    }
+    if (!consentimento) {
+      return aviso('Confirme que o responsável concordou em receber comunicações do InfasCare.');
+    }
+
+    if (!user) return;
+
+    try {
+      setIsSubmitting(true);
+      await adicionarResponsavel(user.uid, {
+        emoji,
+        nome: nome.trim(),
+        parentesco: parentesco.trim(),
+        permissao: tipoAcesso,
+        conectado: false,
+        telefone: telefone.trim(),
+        telefoneE164,
+        email: email.trim().toLowerCase(),
+        localizacao: '',
+        consentimento: true,
+        alertas: { criticos: alertaCriticos, presenca: alertaPresenca },
+      });
+      setConviteEnviado(true);
+    } catch (error) {
+      console.error('Erro ao convidar responsável (InfasCare):', error);
+      setErroAlerta({
+        visible: true,
+        title: 'Erro ao convidar',
+        message: 'Não foi possível salvar. Tente novamente.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const permissaoAtual = PERMISSOES.find((item) => item.titulo === tipoAcesso);
@@ -99,10 +160,10 @@ export default function AdicionarResponsavel() {
         </View>
       </TouchableOpacity>
 
-      <Input label="Nome completo" icon="person-outline" placeholder="Digite o nome completo" theme={theme} />
-      <Input label="Parentesco" icon="heart-outline" placeholder="Selecione o parentesco" arrow theme={theme} />
-      <Input label="Telefone" icon="call-outline" placeholder="(00) 00000-0000" theme={theme} />
-      <Input label="E-mail (opcional)" icon="mail-outline" placeholder="email@exemplo.com" theme={theme} />
+      <Input label="Nome completo" icon="person-outline" placeholder="Digite o nome completo" theme={theme} value={nome} onChangeText={setNome} />
+      <Input label="Parentesco" icon="heart-outline" placeholder="Ex: Mãe, Pai, Avó..." theme={theme} value={parentesco} onChangeText={setParentesco} />
+      <Input label="Telefone" icon="call-outline" placeholder="(00) 00000-0000" theme={theme} value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" />
+      <Input label="E-mail da conta no InfasCare" icon="mail-outline" placeholder="email@exemplo.com" theme={theme} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
 
       <Text style={[styles.sectionTitle, { color: theme.text }]}>
         Tipo de acesso
@@ -129,33 +190,85 @@ export default function AdicionarResponsavel() {
         <Ionicons name="chevron-down" size={20} color={theme.textMuted} />
       </TouchableOpacity>
 
+      <Text style={[styles.sectionTitle, { color: theme.text }]}>
+        Alertas que este responsável recebe
+      </Text>
+
       <View style={[styles.locationCard, { backgroundColor: theme.backgroundCard }]}>
         <View style={[styles.locationIcon, { backgroundColor: theme.accentSoft }]}>
-          <Ionicons name="lock-closed" size={18} color="#7B4DFF" />
+          <Ionicons name="alert-circle-outline" size={18} color="#7B4DFF" />
         </View>
 
         <View style={{ flex: 1 }}>
           <Text style={[styles.locationTitle, { color: theme.text }]}>
-            Compartilhar localização
+            Alertas críticos
           </Text>
           <Text style={[styles.locationSubtitle, { color: theme.textSecondary }]}>
-            Permitir que este responsável veja a localização.
+            Temperatura alta com criança na cadeirinha.
           </Text>
         </View>
 
         <Switch
-          value={compartilharLocalizacao}
-          onValueChange={setCompartilharLocalizacao}
+          value={alertaCriticos}
+          onValueChange={setAlertaCriticos}
+          accessibilityLabel="Alertas críticos"
+          thumbColor="#FFFFFF"
+          trackColor={{ false: theme.border, true: '#7B4DFF' }}
+        />
+      </View>
+
+      <View style={[styles.locationCard, { backgroundColor: theme.backgroundCard }]}>
+        <View style={[styles.locationIcon, { backgroundColor: theme.accentSoft }]}>
+          <Ionicons name="person-outline" size={18} color="#7B4DFF" />
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.locationTitle, { color: theme.text }]}>
+            Presença da criança
+          </Text>
+          <Text style={[styles.locationSubtitle, { color: theme.textSecondary }]}>
+            Quando a criança é colocada ou retirada.
+          </Text>
+        </View>
+
+        <Switch
+          value={alertaPresenca}
+          onValueChange={setAlertaPresenca}
+          accessibilityLabel="Presença da criança"
+          thumbColor="#FFFFFF"
+          trackColor={{ false: theme.border, true: '#7B4DFF' }}
+        />
+      </View>
+
+      <View style={[styles.locationCard, { backgroundColor: theme.backgroundCard }]}>
+        <View style={[styles.locationIcon, { backgroundColor: theme.accentSoft }]}>
+          <Ionicons name="checkmark-circle-outline" size={18} color="#7B4DFF" />
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.locationTitle, { color: theme.text }]}>
+            Consentimento do responsável
+          </Text>
+          <Text style={[styles.locationSubtitle, { color: theme.textSecondary }]}>
+            Confirmo que esta pessoa concordou em receber comunicações do InfasCare no e-mail e telefone informados.
+          </Text>
+        </View>
+
+        <Switch
+          value={consentimento}
+          onValueChange={setConsentimento}
+          accessibilityLabel="Consentimento do responsável"
           thumbColor="#FFFFFF"
           trackColor={{ false: theme.border, true: '#7B4DFF' }}
         />
       </View>
 
       <TouchableOpacity
-        style={styles.inviteButton}
-        onPress={() => setConviteEnviado(true)}
+        style={[styles.inviteButton, { opacity: isSubmitting ? 0.7 : 1 }]}
+        onPress={handleConvidar}
+        disabled={isSubmitting}
       >
-        <Text style={styles.inviteText}>Convidar responsável</Text>
+        <Text style={styles.inviteText}>{isSubmitting ? 'Enviando...' : 'Convidar responsável'}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={voltar}>
@@ -253,8 +366,8 @@ export default function AdicionarResponsavel() {
 
       <FeedbackModal
         visible={conviteEnviado}
-        title="Convite enviado"
-        message="O convite foi preparado com sucesso. O responsável receberá as instruções para acessar o InfantCare."
+        title="Responsável cadastrado"
+        message="Responsável cadastrado. Ele receberá os alertas ao entrar no app InfasCare com o e-mail informado e ativar as notificações."
         type="success"
         confirmText="Concluir"
         theme={theme}
@@ -263,11 +376,21 @@ export default function AdicionarResponsavel() {
           voltar();
         }}
       />
+
+      <FeedbackModal
+        visible={erroAlerta.visible}
+        title={erroAlerta.title}
+        message={erroAlerta.message}
+        type="warning"
+        confirmText="Entendi"
+        theme={theme}
+        onConfirm={() => setErroAlerta((atual) => ({ ...atual, visible: false }))}
+      />
     </ScrollView>
   );
 }
 
-function Input({ label, icon, placeholder, arrow, theme }: any) {
+function Input({ label, icon, placeholder, arrow, theme, value, onChangeText, keyboardType, autoCapitalize }: any) {
   return (
     <View style={styles.inputArea}>
       <Text style={[styles.label, { color: theme.text }]}>{label}</Text>
@@ -278,6 +401,10 @@ function Input({ label, icon, placeholder, arrow, theme }: any) {
           style={[styles.input, { color: theme.text }]}
           placeholder={placeholder}
           placeholderTextColor={theme.textMuted}
+          value={value}
+          onChangeText={onChangeText}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
         />
 
         {arrow && <Ionicons name="chevron-down" size={18} color={theme.textMuted} />}

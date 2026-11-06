@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Perfil do responsável — só o próprio usuário lê/escreve seu documento
+    match /usuarios/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Tokens de notificação push dos aparelhos do próprio usuário
+      match /tokensPush/{tokenId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Histórico de notificações enviadas — escrito SÓ pela Cloud Function (Admin SDK);
+    // o app apenas lê (dono do alerta ou o próprio destinatário).
+    match /notificacoes/{docId} {
+      allow read: if request.auth != null
+                   && (resource.data.donoId == request.auth.uid
+                       || resource.data.destinatarioUid == request.auth.uid);
+      allow write: if false;
+    }
+
+    // Crianças cadastradas — só o responsável dono (responsavelId) acessa
+    match /criancas/{docId} {
+      allow read, update, delete: if request.auth != null
+                                   && resource.data.responsavelId == request.auth.uid;
+      allow create: if request.auth != null
+                     && request.resource.data.responsavelId == request.auth.uid;
+    }
+
+    // Dispositivos pareados — mesmo padrão de dono por responsavelId
+    match /dispositivos/{docId} {
+      allow read, delete: if request.auth != null
+                           && resource.data.responsavelId == request.auth.uid;
+      // update: só o dono, e o documento não pode ser transferido para outro responsavelId
+      allow update: if request.auth != null
+                     && resource.data.responsavelId == request.auth.uid
+                     && request.resource.data.responsavelId == resource.data.responsavelId;
+      allow create: if request.auth != null
+                     && request.resource.data.responsavelId == request.auth.uid;
+    }
+
+    // Responsáveis convidados (familiares/cuidadores) — vinculados a quem convidou (donoId)
+    match /responsaveis/{docId} {
+      allow read, update, delete: if request.auth != null
+                                   && resource.data.donoId == request.auth.uid;
+      allow create: if request.auth != null
+                     && request.resource.data.donoId == request.auth.uid
+                     && request.resource.data.consentimento == true;
+    }
+
+    // Eventos de presença/ausência gravados pelo ESP32 — imutáveis (sem update)
+    match /eventos/{docId} {
+      allow read, delete: if request.auth != null
+                           && resource.data.responsavelId == request.auth.uid;
+      allow create: if request.auth != null
+                     && request.resource.data.responsavelId == request.auth.uid
+                     && request.resource.data.tipo in ['presenca', 'ausencia'];
+      allow update: if false;
+    }
+
+    // Alertas gerados pelo sistema — vinculados ao responsavelId
+    match /alertas/{docId} {
+      allow read, update, delete: if request.auth != null
+                                   && resource.data.responsavelId == request.auth.uid;
+      allow create: if request.auth != null
+                     && request.resource.data.responsavelId == request.auth.uid;
+    }
+  }
+}

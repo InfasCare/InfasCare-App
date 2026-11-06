@@ -15,15 +15,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/use-theme-color';
-
-type Crianca = {
-  id: number;
-  nome: string;
-  idade: string;
-  nascimento: string;
-  sexo: string;
-  foto: string;
-};
+import { useAuth } from '@/contexts/AuthContext';
+import { useI18n } from '@/contexts/I18nContext';
+import { Linking } from 'react-native';
+import { ouvirResponsaveis, type Responsavel } from '@/services/responsaveis';
+import { ouvirCriancas, adicionarCrianca, removerCrianca, type Crianca } from '@/services/criancas';
 
 type FeedbackState = {
   visible: boolean;
@@ -33,12 +29,6 @@ type FeedbackState = {
 };
 
 const AVATARES = ['👶🏻', '👶🏼', '👶🏽', '👶🏾', '👶🏿', '👧🏻', '👧🏽', '👧🏿', '👦🏻', '👦🏽', '👦🏿'];
-
-const RESPONSAVEIS = [
-  { nome: 'Maria Oliveira', telefone: '(11) 99999-0000' },
-  { nome: 'Carlos Oliveira', telefone: '(11) 98888-0000' },
-  { nome: 'Ana Oliveira', telefone: '(11) 97777-0000' },
-];
 
 export default function Criancas() {
   const theme = useTheme();
@@ -63,16 +53,31 @@ export default function Criancas() {
   const telaPequena = width < 380;
   const paddingHorizontal = telaPequena ? 16 : 24;
 
-  const [criancas, setCriancas] = useState<Crianca[]>([
-    {
-      id: 1,
-      nome: 'Laura Oliveira',
-      idade: '4 anos',
-      nascimento: '15/03/2022',
-      sexo: 'Feminino',
-      foto: '👧🏻',
-    },
-  ]);
+  const { user } = useAuth();
+  const [responsaveis, setResponsaveis] = useState<Responsavel[]>([]);
+  useEffect(() => {
+    if (!user) return;
+    return ouvirResponsaveis(user.uid, setResponsaveis);
+  }, [user]);
+  const { t } = useI18n();
+
+  const [criancas, setCriancas] = useState<Crianca[]>([]);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribe = ouvirCriancas(
+      user.uid,
+      (lista) => {
+        setCriancas(lista);
+        setCarregando(false);
+      },
+      () => setCarregando(false),
+    );
+
+    return unsubscribe;
+  }, [user]);
 
   const [modalCadastro, setModalCadastro] = useState(false);
   const [modalAvatar, setModalAvatar] = useState(false);
@@ -83,6 +88,7 @@ export default function Criancas() {
   const [nascimento, setNascimento] = useState('');
   const [sexo, setSexo] = useState('');
   const [foto, setFoto] = useState('👶🏻');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackState>({
     visible: false,
     title: '',
@@ -95,41 +101,47 @@ export default function Criancas() {
     else router.replace('/(tabs)/perfil');
   }
 
-  function cadastrarCrianca() {
+  async function cadastrarCrianca() {
     if (!nome || !idade || !nascimento || !sexo) {
       setFeedback({
         visible: true,
-        title: 'Campos incompletos',
-        message: 'Preencha nome, idade, data de nascimento e sexo da criança.',
+        title: t('children_incompleteFields'),
+        message: t('children_incompleteFieldsMsg'),
         type: 'warning',
       });
       return;
     }
 
-    const novaCrianca: Crianca = {
-      id: Date.now(),
-      nome,
-      idade,
-      nascimento,
-      sexo,
-      foto,
-    };
+    if (!user) return;
 
-    setCriancas([...criancas, novaCrianca]);
+    try {
+      setIsSubmitting(true);
+      await adicionarCrianca(user.uid, { nome, idade, nascimento, sexo, foto });
 
-    setNome('');
-    setIdade('');
-    setNascimento('');
-    setSexo('');
-    setFoto('👶🏻');
-    setModalCadastro(false);
+      setNome('');
+      setIdade('');
+      setNascimento('');
+      setSexo('');
+      setFoto('👶🏻');
+      setModalCadastro(false);
 
-    setFeedback({
-      visible: true,
-      title: 'Criança cadastrada',
-      message: `${novaCrianca.nome} foi adicionada com sucesso.`,
-      type: 'success',
-    });
+      setFeedback({
+        visible: true,
+        title: t('children_registered'),
+        message: `${nome} ${t('children_registeredMsg')}`,
+        type: 'success',
+      });
+    } catch (error) {
+      console.error('Erro ao cadastrar criança (InfasCare):', error);
+      setFeedback({
+        visible: true,
+        title: t('children_registerError'),
+        message: t('children_registerErrorMsg'),
+        type: 'warning',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -156,9 +168,9 @@ export default function Criancas() {
           </TouchableOpacity>
 
           <View style={styles.headerText}>
-            <Text style={[styles.title, { color: theme.text }]}>Crianças cadastradas</Text>
+            <Text style={[styles.title, { color: theme.text }]}>{t('children_title')}</Text>
             <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-              Gerencie as crianças vinculadas ao InfantCare.
+              {t('children_subtitle')}
             </Text>
           </View>
 
@@ -167,11 +179,22 @@ export default function Criancas() {
           </TouchableOpacity>
         </View>
 
+        {carregando && (
+          <Text style={{ color: theme.textSecondary, textAlign: 'center', marginTop: 24 }}>
+            {t('children_loading')}
+          </Text>
+        )}
+
+        {!carregando && criancas.length === 0 && (
+          <Text style={{ color: theme.textSecondary, textAlign: 'center', marginTop: 24 }}>
+            {t('children_empty')}
+          </Text>
+        )}
+
         {criancas.map((crianca) => (
           <Animated.View
             key={crianca.id}
             style={[pageStyle, styles.childCard, { backgroundColor: theme.backgroundCard }]}
-          >
           >
             <View style={styles.childTop}>
               <View
@@ -200,7 +223,7 @@ export default function Criancas() {
 
                   <View style={styles.activeBadge}>
                     <View style={styles.activeDot} />
-                    <Text style={styles.activeText}>Ativa</Text>
+                    <Text style={styles.activeText}>{t('children_active')}</Text>
                   </View>
                 </View>
 
@@ -225,7 +248,7 @@ export default function Criancas() {
                         { color: theme.textSecondary },
                       ]}
                     >
-                      Data de nascimento
+                      {t('children_birthLabel')}
                     </Text>
 
                     <Text
@@ -268,10 +291,10 @@ export default function Criancas() {
 
                 <View style={styles.actionContent}>
                   <Text style={styles.primaryActionTitle}>
-                    Ver localização
+                    {t('children_viewLocation')}
                   </Text>
                   <Text style={styles.primaryActionSubtitle}>
-                    Acompanhar cadeirinha
+                    {t('children_trackDevice')}
                   </Text>
                 </View>
 
@@ -309,7 +332,7 @@ export default function Criancas() {
                     { color: theme.text },
                   ]}
                 >
-                  Ligar
+                  {t('children_call')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -323,9 +346,9 @@ export default function Criancas() {
           <View style={styles.plusCircle}>
             <Ionicons name="add" size={28} color="#FFFFFF" />
           </View>
-          <Text style={styles.addTitle}>Cadastrar criança</Text>
+          <Text style={styles.addTitle}>{t('children_addTitle')}</Text>
           <Text style={[styles.addSubtitle, { color: theme.textSecondary }]}>
-            Adicione nome, idade, nascimento, sexo e foto da criança.
+            {t('children_addSubtitle')}
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -334,7 +357,7 @@ export default function Criancas() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalBox, { backgroundColor: theme.backgroundCard }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>Cadastrar criança</Text>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>{t('children_addTitle')}</Text>
               <TouchableOpacity onPress={() => setModalCadastro(false)}>
                 <Ionicons name="close" size={24} color={theme.text} />
               </TouchableOpacity>
@@ -349,13 +372,17 @@ export default function Criancas() {
               </View>
             </TouchableOpacity>
 
-            <Input label="Nome" value={nome} onChangeText={setNome} placeholder="Nome da criança" theme={theme} />
-            <Input label="Idade" value={idade} onChangeText={setIdade} placeholder="Ex: 4 anos" theme={theme} />
-            <Input label="Data de nascimento" value={nascimento} onChangeText={setNascimento} placeholder="00/00/0000" theme={theme} />
-            <Input label="Sexo" value={sexo} onChangeText={setSexo} placeholder="Feminino, Masculino..." theme={theme} />
+            <Input label={t('children_nameLabel')} value={nome} onChangeText={setNome} placeholder={t('children_namePlaceholder')} theme={theme} />
+            <Input label={t('children_ageLabel')} value={idade} onChangeText={setIdade} placeholder={t('children_agePlaceholder')} theme={theme} />
+            <Input label={t('children_birthLabel')} value={nascimento} onChangeText={setNascimento} placeholder={t('children_birthDatePlaceholder')} theme={theme} />
+            <Input label={t('children_sexLabel')} value={sexo} onChangeText={setSexo} placeholder={t('children_sexPlaceholder')} theme={theme} />
 
-            <TouchableOpacity style={styles.saveButton} onPress={cadastrarCrianca}>
-              <Text style={styles.saveText}>Salvar criança</Text>
+            <TouchableOpacity
+              style={[styles.saveButton, { opacity: isSubmitting ? 0.7 : 1 }]}
+              onPress={cadastrarCrianca}
+              disabled={isSubmitting}
+            >
+              <Text style={styles.saveText}>{isSubmitting ? t('children_saving') : t('children_saveChild')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -365,7 +392,7 @@ export default function Criancas() {
         <View style={styles.permissionOverlay}>
           <View style={[styles.avatarModal, { backgroundColor: theme.backgroundCard }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>Escolha uma foto</Text>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>{t('children_choosePhoto')}</Text>
               <TouchableOpacity onPress={() => setModalAvatar(false)}>
                 <Ionicons name="close" size={24} color={theme.text} />
               </TouchableOpacity>
@@ -397,24 +424,32 @@ export default function Criancas() {
         <View style={styles.permissionOverlay}>
           <View style={[styles.callModal, { backgroundColor: theme.backgroundCard }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>Ligar para responsável</Text>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>{t('children_callResponsible')}</Text>
               <TouchableOpacity onPress={() => setModalLigacao(false)}>
                 <Ionicons name="close" size={24} color={theme.text} />
               </TouchableOpacity>
             </View>
 
-            {RESPONSAVEIS.map((resp) => (
+            {responsaveis.length === 0 && (
+              <Text style={[styles.responsavelTel, { color: theme.textSecondary }]}>
+                Nenhum responsável cadastrado. Adicione em Configurações › Responsáveis.
+              </Text>
+            )}
+            {responsaveis.map((resp) => (
               <TouchableOpacity
-                key={resp.telefone}
+                key={resp.id}
                 style={[styles.responsavelItem, { backgroundColor: theme.backgroundSoft }]}
                 onPress={() => {
                   setModalLigacao(false);
-                  setFeedback({
-                    visible: true,
-                    title: `Ligando para ${resp.nome}`,
-                    message: `Telefone: ${resp.telefone}`,
-                    type: 'info',
-                  });
+                  // Abre o discador do aparelho com o número real do responsável
+                  Linking.openURL(`tel:${resp.telefoneE164 || resp.telefone.replace(/\D/g, '')}`).catch(() =>
+                    setFeedback({
+                      visible: true,
+                      title: resp.nome,
+                      message: `${t('children_phoneLabel')}: ${resp.telefone}`,
+                      type: 'info',
+                    }),
+                  );
                 }}
               >
                 <Ionicons name="call" size={20} color="#7B4DFF" />
@@ -433,7 +468,7 @@ export default function Criancas() {
         title={feedback.title}
         message={feedback.message}
         type={feedback.type}
-        confirmText="Entendi"
+        confirmText={t('understood')}
         theme={theme}
         onConfirm={() =>
           setFeedback((current) => ({

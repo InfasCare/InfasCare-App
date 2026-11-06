@@ -13,18 +13,13 @@ import {
   View,
 } from 'react-native';
 import { useTheme } from '@/hooks/use-theme-color';
-
-type Responsavel = {
-  id: number;
-  emoji: string;
-  nome: string;
-  parentesco: string;
-  permissao: string;
-  conectado: boolean;
-  telefone: string;
-  email: string;
-  localizacao: string;
-};
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  ouvirResponsaveis,
+  atualizarResponsavel,
+  removerResponsavel,
+  type Responsavel,
+} from '@/services/responsaveis';
 
 export default function Responsaveis() {
   const theme = useTheme();
@@ -44,41 +39,23 @@ export default function Responsaveis() {
     transform: [{ translateY: pageAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
   };
 
-  const [responsaveis, setResponsaveis] = useState<Responsavel[]>([
-    {
-      id: 1,
-      emoji: '👩🏻',
-      nome: 'Maria Oliveira',
-      parentesco: 'Mãe',
-      permissao: 'Principal',
-      conectado: true,
-      telefone: '(11) 99999-0000',
-      email: 'maria@email.com',
-      localizacao: 'Rua das Flores, Vila Carrão - SP',
-    },
-    {
-      id: 2,
-      emoji: '👨🏻',
-      nome: 'Carlos Oliveira',
-      parentesco: 'Pai',
-      permissao: 'Emergência',
-      conectado: true,
-      telefone: '(11) 98888-0000',
-      email: 'carlos@email.com',
-      localizacao: 'Avenida Principal, Tatuapé - SP',
-    },
-    {
-      id: 3,
-      emoji: '👵🏻',
-      nome: 'Ana Oliveira',
-      parentesco: 'Avó',
-      permissao: 'Visualização',
-      conectado: false,
-      telefone: '(11) 97777-0000',
-      email: 'ana@email.com',
-      localizacao: 'Praça Central, Penha - SP',
-    },
-  ]);
+  const { user } = useAuth();
+
+  const [responsaveis, setResponsaveis] = useState<Responsavel[]>([]);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = ouvirResponsaveis(
+      user.uid,
+      (lista) => {
+        setResponsaveis(lista);
+        setCarregando(false);
+      },
+      () => setCarregando(false),
+    );
+    return unsubscribe;
+  }, [user]);
 
   const [selecionado, setSelecionado] = useState<Responsavel | null>(null);
 
@@ -90,19 +67,25 @@ export default function Responsaveis() {
     else router.replace('/(settings)/responsaveis');
   }
 
-  function alternarConexao(id: number) {
+  function alternarConexao(id: string) {
+    const atual = responsaveis.find((r) => r.id === id);
+    if (!atual) return;
+
     setResponsaveis((lista) =>
       lista.map((item) =>
         item.id === id ? { ...item, conectado: !item.conectado } : item
       )
     );
-
-    setSelecionado((atual) =>
-      atual && atual.id === id ? { ...atual, conectado: !atual.conectado } : atual
+    setSelecionado((atualSel) =>
+      atualSel && atualSel.id === id ? { ...atualSel, conectado: !atualSel.conectado } : atualSel
     );
+
+    atualizarResponsavel(id, { conectado: !atual.conectado }).catch((error) => {
+      console.error('Erro ao atualizar conexão do responsável (InfasCare):', error);
+    });
   }
 
-  function editarPermissao(id: number) {
+  function editarPermissao(id: string) {
     const opcoes = ['Principal', 'Emergência', 'Visualização', 'Controle total'];
     const atual = responsaveis.find((r) => r.id === id);
     if (!atual) return;
@@ -115,28 +98,33 @@ export default function Responsaveis() {
         item.id === id ? { ...item, permissao: novaPermissao } : item
       )
     );
-
     setSelecionado((atualSelecionado) =>
       atualSelecionado && atualSelecionado.id === id
         ? { ...atualSelecionado, permissao: novaPermissao }
         : atualSelecionado
     );
+
+    atualizarResponsavel(id, { permissao: novaPermissao }).catch((error) => {
+      console.error('Erro ao atualizar permissão do responsável (InfasCare):', error);
+    });
   }
 
   function solicitarExclusao(responsavel: Responsavel) {
     setResponsavelParaExcluir(responsavel);
   }
 
-  function confirmarExclusao() {
+  async function confirmarExclusao() {
     if (!responsavelParaExcluir) return;
 
-    setResponsaveis((lista) =>
-      lista.filter((item) => item.id !== responsavelParaExcluir.id)
-    );
-
-    setSelecionado(null);
-    setResponsavelParaExcluir(null);
-    setFeedbackSucesso(true);
+    try {
+      await removerResponsavel(responsavelParaExcluir.id);
+      setSelecionado(null);
+      setResponsavelParaExcluir(null);
+      setFeedbackSucesso(true);
+    } catch (error) {
+      console.error('Erro ao remover responsável (InfasCare):', error);
+      setResponsavelParaExcluir(null);
+    }
   }
 
   return (
@@ -183,7 +171,7 @@ export default function Responsaveis() {
               <View style={styles.locationRow}>
                 <Ionicons name="location-outline" size={13} color="#8B5CF6" />
                 <Text style={[styles.locationText, { color: theme.textMuted }]}>
-                  {item.conectado ? 'Localização ativa' : 'Última conexão: 2h atrás'}
+                  {item.consentimento ? 'Recebe alertas' : 'Sem consentimento registrado'}
                 </Text>
               </View>
             </View>

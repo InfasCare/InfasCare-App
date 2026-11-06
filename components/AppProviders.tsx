@@ -1,3 +1,4 @@
+import { AuthProvider } from '@/contexts/AuthContext';
 import { I18nProvider } from '@/contexts/I18nContext';
 import {
   SettingsProvider,
@@ -24,8 +25,10 @@ export default function AppProviders({
   return (
     <SettingsProvider>
       <I18nProvider>
-        <AppStatusBar />
-        {children}
+        <AuthProvider>
+          <AppStatusBar />
+          {children}
+        </AuthProvider>
       </I18nProvider>
     </SettingsProvider>
   );

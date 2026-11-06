@@ -17,6 +17,10 @@ import {
   View,
 } from 'react-native';
 import { useTheme } from '@/hooks/use-theme-color';
+import { useAuth } from '@/contexts/AuthContext';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '@/config/firebase';
+import { useI18n } from '@/contexts/I18nContext';
 
 if (Platform.OS === 'android') {
   const AndroidUIManager = UIManager as unknown as {
@@ -36,14 +40,35 @@ type PerfilData = {
 
 export default function Perfil() {
   const theme = useTheme();
+  const { user, logout } = useAuth();
+  const { t } = useI18n();
 
+  // Dados reais da conta (Auth + coleção "usuarios"); nada de dados de exemplo.
   const [perfil, setPerfil] = useState<PerfilData>({
-    nome: 'Maria Silva',
-    email: 'maria.silva@email.com',
-    telefone: '(11) 99999-0000',
-    endereco: 'São Paulo - SP',
+    nome: user?.displayName ?? '',
+    email: user?.email ?? '',
+    telefone: '',
+    endereco: '',
     responsavel: 'Responsável principal',
   });
+
+  useEffect(() => {
+    if (!user) return;
+    let ativo = true;
+    getDoc(doc(db, 'usuarios', user.uid))
+      .then((snap) => {
+        if (!ativo || !snap.exists()) return;
+        const d = snap.data();
+        setPerfil((atual) => ({
+          ...atual,
+          nome: d.nome ?? atual.nome,
+          telefone: d.telefone ?? '',
+          endereco: d.endereco ?? '',
+        }));
+      })
+      .catch((error) => console.error('Erro ao carregar perfil (InfasCare):', error));
+    return () => { ativo = false; };
+  }, [user]);
 
   const [editando, setEditando] = useState(false);
   const [form, setForm] = useState(perfil);
@@ -67,8 +92,20 @@ export default function Perfil() {
     }).start(() => setEditando(false));
   }
 
-  function salvarPerfil() {
-    setPerfil(form);
+  async function salvarPerfil() {
+    if (!user) return;
+    try {
+      // Persiste no Firestore (antes a edição só valia até fechar o app)
+      await setDoc(
+        doc(db, 'usuarios', user.uid),
+        { nome: form.nome.trim(), telefone: form.telefone.trim(), endereco: form.endereco.trim() },
+        { merge: true },
+      );
+    } catch (error) {
+      console.error('Erro ao salvar perfil (InfasCare):', error);
+      return;
+    }
+    setPerfil({ ...form, email: perfil.email });
     fecharEdicao();
 
     setMostrarToast(true);
@@ -101,8 +138,9 @@ export default function Perfil() {
     setMostrarInfo((atual) => !atual);
   }
 
-  function sair() {
-    router.replace('/(auth)');
+  async function sair() {
+    // O AuthGate (app/_layout.tsx) detecta o logout e redireciona para (auth)
+    await logout();
   }
 
   useEffect(() => {
@@ -139,7 +177,7 @@ export default function Perfil() {
               <Ionicons name="chevron-back" size={24} color={theme.text} />
             </TouchableOpacity>
 
-            <Text style={[styles.headerTitle, { color: theme.text }]}>Perfil</Text>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>{t('profile_title')}</Text>
 
             <TouchableOpacity onPress={abrirEdicao}>
               <Ionicons name="pencil" size={20} color={theme.text} />
@@ -164,11 +202,11 @@ export default function Perfil() {
 
         <View style={styles.quickInfo}>
           <FadeSlideIn delay={140} style={{ flex: 1 }}>
-            <InfoBox icon="shield-checkmark-outline" title="Status" value="Seguro" theme={theme} />
+            <InfoBox icon="shield-checkmark-outline" title={t('profile_status')} value={t('profile_secure')} theme={theme} />
           </FadeSlideIn>
 
           <FadeSlideIn delay={200} style={{ flex: 1 }}>
-            <InfoBox icon="heart-outline" title="Conta" value="Ativa" theme={theme} />
+            <InfoBox icon="heart-outline" title={t('profile_account')} value={t('profile_active')} theme={theme} />
           </FadeSlideIn>
         </View>
 
@@ -176,7 +214,7 @@ export default function Perfil() {
           <FadeSlideIn delay={250}>
             <MenuItem
               icon="person-outline"
-              title="Meu perfil"
+              title={t('profile_myProfile')}
               onPress={alternarInfo}
               theme={theme}
               expanded={mostrarInfo}
@@ -185,18 +223,18 @@ export default function Perfil() {
 
           {mostrarInfo && (
             <View style={[styles.infoCard, { backgroundColor: theme.backgroundCard }]}>
-              <Detail icon="person" label="Nome" value={perfil.nome} theme={theme} />
-              <Detail icon="mail" label="E-mail" value={perfil.email} theme={theme} />
-              <Detail icon="call" label="Telefone" value={perfil.telefone} theme={theme} />
-              <Detail icon="location" label="Endereço" value={perfil.endereco} theme={theme} />
-              <Detail icon="star" label="Tipo" value={perfil.responsavel} theme={theme} />
+              <Detail icon="person" label={t('profile_name')} value={perfil.nome} theme={theme} />
+              <Detail icon="mail" label={t('profile_email')} value={perfil.email} theme={theme} />
+              <Detail icon="call" label={t('profile_phone')} value={perfil.telefone || '—'} theme={theme} />
+              <Detail icon="location" label={t('profile_address')} value={perfil.endereco || '—'} theme={theme} />
+              <Detail icon="star" label={t('profile_type')} value={perfil.responsavel} theme={theme} />
             </View>
           )}
 
           <FadeSlideIn delay={300}>
             <MenuItem
               icon="people-outline"
-              title="Crianças cadastradas"
+              title={t('profile_registeredChildren')}
               onPress={() => router.push('/(settings)/criancas')}
               theme={theme}
             />
@@ -205,7 +243,7 @@ export default function Perfil() {
           <FadeSlideIn delay={340}>
             <MenuItem
               icon="people-circle-outline"
-              title="Responsáveis cadastrados"
+              title={t('profile_registeredCaregivers')}
               onPress={() => router.push('/(settings)/responsaveis')}
               theme={theme}
             />
@@ -214,7 +252,7 @@ export default function Perfil() {
           <FadeSlideIn delay={380}>
             <MenuItem
               icon="bluetooth-outline"
-              title="Dispositivos conectados"
+              title={t('profile_connectedDevices')}
               onPress={() => router.push('/(settings)/dispositivos')}
               theme={theme}
             />
@@ -223,7 +261,7 @@ export default function Perfil() {
           <FadeSlideIn delay={420}>
             <MenuItem
               icon="settings-outline"
-              title="Configurações"
+              title={t('settings')}
               onPress={() => router.push('/(settings)/configuracoes')}
               theme={theme}
             />
@@ -232,7 +270,7 @@ export default function Perfil() {
           <FadeSlideIn delay={460}>
             <MenuItem
               icon="information-circle-outline"
-              title="Sobre o aplicativo"
+              title={t('aboutApp')}
               onPress={() => router.push('/(settings)/sobre')}
               theme={theme}
             />
@@ -242,7 +280,7 @@ export default function Perfil() {
         <FadeSlideIn delay={510}>
           <PressScale onPress={sair} style={[styles.logoutButton, { backgroundColor: theme.backgroundCard }]} scaleTo={0.97}>
             <Ionicons name="log-out-outline" size={19} color="#FF4D4D" />
-            <Text style={styles.logoutText}>Sair</Text>
+            <Text style={styles.logoutText}>{t('profile_logout')}</Text>
           </PressScale>
         </FadeSlideIn>
       </ScrollView>
@@ -258,7 +296,7 @@ export default function Perfil() {
             ]}
           >
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>Editar perfil</Text>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>{t('profile_editTitle')}</Text>
 
               <TouchableOpacity onPress={fecharEdicao}>
                 <Ionicons name="close" size={24} color={theme.text} />
@@ -266,35 +304,35 @@ export default function Perfil() {
             </View>
 
             <Input
-              label="Nome"
+              label={t('profile_name')}
               value={form.nome}
               onChangeText={(v: string) => setForm({ ...form, nome: v })}
               theme={theme}
             />
 
             <Input
-              label="E-mail"
+              label={t('profile_email')}
               value={form.email}
               onChangeText={(v: string) => setForm({ ...form, email: v })}
               theme={theme}
             />
 
             <Input
-              label="Telefone"
+              label={t('profile_phone')}
               value={form.telefone}
               onChangeText={(v: string) => setForm({ ...form, telefone: v })}
               theme={theme}
             />
 
             <Input
-              label="Endereço"
+              label={t('profile_address')}
               value={form.endereco}
               onChangeText={(v: string) => setForm({ ...form, endereco: v })}
               theme={theme}
             />
 
             <PressScale onPress={salvarPerfil} style={styles.saveButton} scaleTo={0.97}>
-              <Text style={styles.saveText}>Salvar alterações</Text>
+              <Text style={styles.saveText}>{t('profile_saveChanges')}</Text>
             </PressScale>
           </Animated.View>
         </Animated.View>
@@ -315,7 +353,7 @@ export default function Perfil() {
           <View style={styles.toastIcon}>
             <Ionicons name="checkmark" size={16} color="#FFFFFF" />
           </View>
-          <Text style={[styles.toastText, { color: theme.text }]}>Perfil atualizado</Text>
+          <Text style={[styles.toastText, { color: theme.text }]}>{t('profile_updated')}</Text>
         </Animated.View>
       )}
     </View>

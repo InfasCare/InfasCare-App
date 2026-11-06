@@ -11,22 +11,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   AlertTriangle, Thermometer, Info, CheckCircle2,
-  BatteryLow, Wifi, MapPin, Bell, SlidersHorizontal, X, Check,
+  BatteryLow, Wifi, MapPin, Bell, SlidersHorizontal, X, Check, Plus,
 } from 'lucide-react-native';
 import { Colors, Brand } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
+import { useI18n, type TranslationKey } from '@/contexts/I18nContext';
+import { ouvirAlertas, marcarAlertaComoLido, type AlertType, type Alerta as AlertItem } from '@/services/alertas';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
-type AlertType = 'critico' | 'temperatura' | 'informativo' | 'sucesso' | 'bateria' | 'conexao' | 'localizacao';
 type FilterTab = 'todos' | 'criticos' | 'informativos';
-
-interface AlertItem {
-  id: string;
-  type: AlertType;
-  title: string;
-  description: string;
-  time: string;
-  read: boolean;
-}
 
 // ─── Configuração visual por tipo ─────────────────────────────────────────────
 const ALERT_CONFIG: Record<AlertType, {
@@ -95,61 +88,16 @@ const ALERT_CONFIG: Record<AlertType, {
   },
 };
 
-// ─── Dados mockados ───────────────────────────────────────────────────────────
-const MOCK_ALERTS: AlertItem[] = [
-  {
-    id: '1', type: 'critico', read: false,
-    title: 'Alerta crítico',
-    description: 'Criança deixada na cadeirinha! Verifique imediatamente.',
-    time: '09:41',
-  },
-  {
-    id: '2', type: 'temperatura', read: false,
-    title: 'Temperatura elevada',
-    description: 'Temperatura interna acima do normal.',
-    time: '09:20',
-  },
-  {
-    id: '3', type: 'informativo', read: true,
-    title: 'Viagem finalizada',
-    description: 'Viagem concluída com sucesso.',
-    time: 'Ontem 18:30',
-  },
-  {
-    id: '4', type: 'bateria', read: true,
-    title: 'Bateria fraca',
-    description: 'Nível de bateria do dispositivo abaixo de 20%.',
-    time: 'Ontem 14:15',
-  },
-  {
-    id: '5', type: 'sucesso', read: true,
-    title: 'Dispositivo conectado',
-    description: 'Cadeirinha reconectada com sucesso ao seu celular.',
-    time: 'Ontem 08:00',
-  },
-  {
-    id: '6', type: 'localizacao', read: true,
-    title: 'Chegou ao destino',
-    description: 'Cadeirinha chegou ao endereço de destino definido.',
-    time: 'Sex 17:42',
-  },
-  {
-    id: '7', type: 'conexao', read: true,
-    title: 'Sinal fraco detectado',
-    description: 'A conexão Bluetooth está com sinal abaixo do esperado.',
-    time: 'Sex 11:10',
-  },
-];
 
 // ─── Opções de filtro avançado ────────────────────────────────────────────────
-const FILTER_OPTIONS: { key: AlertType; label: string }[] = [
-  { key: 'critico',      label: '🔴  Críticos'      },
-  { key: 'temperatura',  label: '🟠  Temperatura'   },
-  { key: 'bateria',      label: '🟡  Bateria'       },
-  { key: 'informativo',  label: 'ℹ️   Informativos'  },
-  { key: 'sucesso',      label: '✅  Sucesso'       },
-  { key: 'localizacao',  label: '📍  Localização'   },
-  { key: 'conexao',      label: '📶  Conexão'       },
+const FILTER_OPTIONS: { key: AlertType; emoji: string; labelKey: TranslationKey }[] = [
+  { key: 'critico',      emoji: '🔴',  labelKey: 'alerts_filterCritico'     },
+  { key: 'temperatura',  emoji: '🟠',  labelKey: 'alerts_filterTemperatura' },
+  { key: 'bateria',      emoji: '🟡',  labelKey: 'alerts_filterBateria'     },
+  { key: 'informativo',  emoji: 'ℹ️',  labelKey: 'alerts_filterInformativo' },
+  { key: 'sucesso',      emoji: '✅',  labelKey: 'alerts_filterSucesso'     },
+  { key: 'localizacao',  emoji: '📍',  labelKey: 'alerts_filterLocalizacao' },
+  { key: 'conexao',      emoji: '📶',  labelKey: 'alerts_filterConexao'     },
 ];
 
 // ─── Componente: Glow pulsante atrás do card ─────────────────────────────────
@@ -283,6 +231,7 @@ function FilterModal({
   onClose: () => void;
   onClear: () => void;
 }) {
+  const { t } = useI18n();
   const slideAnim = useRef(new Animated.Value(400)).current;
   const bgAnim    = useRef(new Animated.Value(0)).current;
 
@@ -321,14 +270,14 @@ function FilterModal({
 
         {/* Header */}
         <View style={styles.sheetHeader}>
-          <Text style={[styles.sheetTitle, { color: C.text }]}>Filtrar alertas</Text>
+          <Text style={[styles.sheetTitle, { color: C.text }]}>{t('alerts_filterModalTitle')}</Text>
           <TouchableOpacity onPress={onClose} style={styles.sheetClose}>
             <X size={20} color={C.textSecondary} />
           </TouchableOpacity>
         </View>
 
         <Text style={[styles.sheetSubtitle, { color: C.textSecondary }]}>
-          Selecione os tipos de alerta que deseja ver
+          {t('alerts_filterModalSubtitle')}
         </Text>
 
         {/* Opções */}
@@ -350,7 +299,7 @@ function FilterModal({
                 ]}
               >
                 <Text style={[styles.filterChipText, { color: isOn ? cfg.color : C.textSecondary }]}>
-                  {opt.label}
+                  {opt.emoji}  {t(opt.labelKey)}
                 </Text>
                 {isOn && (
                   <View style={[styles.filterCheckIcon, { backgroundColor: cfg.color }]}>
@@ -368,13 +317,13 @@ function FilterModal({
             style={[styles.filterBtnSecondary, { borderColor: C.border, backgroundColor: C.backgroundSoft }]}
             onPress={onClear}
           >
-            <Text style={[styles.filterBtnSecondaryText, { color: C.textSecondary }]}>Limpar</Text>
+            <Text style={[styles.filterBtnSecondaryText, { color: C.textSecondary }]}>{t('alerts_clearFilters')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.filterBtnPrimary, { backgroundColor: Brand.purple }]}
             onPress={onApply}
           >
-            <Text style={styles.filterBtnPrimaryText}>Aplicar filtros</Text>
+            <Text style={styles.filterBtnPrimaryText}>{t('alerts_applyFilters')}</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -388,11 +337,22 @@ export default function AlertasScreen() {
   const C      = Colors[scheme];
   const isDark = scheme === 'dark';
 
+  const { user } = useAuth();
+  const { t } = useI18n();
+
   const [activeTab,       setActiveTab]       = useState<FilterTab>('todos');
   const [filterVisible,   setFilterVisible]   = useState(false);
   const [selectedFilters, setSelectedFilters] = useState<AlertType[]>([]);
   const [appliedFilters,  setAppliedFilters]  = useState<AlertType[]>([]);
-  const [alerts,          setAlerts]          = useState<AlertItem[]>(MOCK_ALERTS);
+  const [alerts,          setAlerts]          = useState<AlertItem[]>([]);
+
+  // Sincroniza os alertas com o Firestore em tempo real, filtrados pelo
+  // responsável logado (do mais recente para o mais antigo).
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = ouvirAlertas(user.uid, setAlerts);
+    return unsubscribe;
+  }, [user]);
 
   // Contagem de não-lidos
   const unreadCount = alerts.filter(a => !a.read).length;
@@ -410,6 +370,9 @@ export default function AlertasScreen() {
   // Marca como lido
   const handleAlertPress = (id: string) => {
     setAlerts(prev => prev.map(a => a.id === id ? { ...a, read: true } : a));
+    marcarAlertaComoLido(id).catch((error) => {
+      console.error('Erro ao marcar alerta como lido (InfasCare):', error);
+    });
   };
 
   const toggleFilter = (key: AlertType) => {
@@ -429,9 +392,9 @@ export default function AlertasScreen() {
   };
 
   const TABS: { key: FilterTab; label: string }[] = [
-    { key: 'todos',        label: 'Todos'       },
-    { key: 'criticos',     label: 'Críticos'    },
-    { key: 'informativos', label: 'Informativos' },
+    { key: 'todos',        label: t('alerts_tabAll')      },
+    { key: 'criticos',     label: t('alerts_tabCritical') },
+    { key: 'informativos', label: t('alerts_tabInfo')     },
   ];
 
   return (
@@ -444,13 +407,14 @@ export default function AlertasScreen() {
       {/* ── Header ── */}
       <View style={[styles.header, { backgroundColor: C.background, borderBottomColor: C.border }]}>
         <View style={styles.headerLeft}>
-          <Text style={[styles.headerTitle, { color: C.text }]}>Alertas</Text>
+          <Text style={[styles.headerTitle, { color: C.text }]}>{t('alerts_title')}</Text>
           {unreadCount > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{unreadCount}</Text>
             </View>
           )}
         </View>
+
         <TouchableOpacity
           onPress={() => { setSelectedFilters(appliedFilters); setFilterVisible(true); }}
           style={[
@@ -509,9 +473,9 @@ export default function AlertasScreen() {
         {filteredAlerts.length === 0 ? (
           <View style={styles.emptyState}>
             <Bell size={48} color={C.textMuted} strokeWidth={1.5} />
-            <Text style={[styles.emptyTitle, { color: C.text }]}>Nenhum alerta</Text>
+            <Text style={[styles.emptyTitle, { color: C.text }]}>{t('alerts_emptyTitle')}</Text>
             <Text style={[styles.emptyDesc, { color: C.textSecondary }]}>
-              Não há alertas para os filtros selecionados.
+              {t('alerts_emptyDesc')}
             </Text>
           </View>
         ) : (
@@ -528,7 +492,7 @@ export default function AlertasScreen() {
         {/* Nota de rodapé */}
         {filteredAlerts.length > 0 && (
           <Text style={[styles.footerNote, { color: C.textMuted }]}>
-            Toque em um alerta para marcá-lo como lido
+            {t('alerts_footerNote')}
           </Text>
         )}
       </ScrollView>

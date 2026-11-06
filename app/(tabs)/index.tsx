@@ -13,6 +13,9 @@ import {
   Menu, Bell, Check, Thermometer, User, MapPin, ShieldCheck, ChevronRight,
 } from 'lucide-react-native';
 import { Colors, Brand } from '@/constants/theme';
+import { useI18n } from '@/contexts/I18nContext';
+import { useDispositivoPrincipal } from '@/hooks/useDispositivoPrincipal';
+import { formatarDuracao } from '@/services/dispositivos';
 
 // ─── Entrada animada (fade + slide-up) ────────────────────────────────────────
 function FadeInUp({
@@ -158,6 +161,33 @@ export default function HomeScreen() {
   const C = Colors[scheme];
   const isDark = scheme === 'dark';
   const router = useRouter();
+  const { t } = useI18n();
+  const { dispositivo } = useDispositivoPrincipal();
+
+  // ── Dados reais da cadeirinha (ESP32 -> Firestore) ──
+  const online      = !!dispositivo?.online;
+  const temp        = online ? dispositivo?.temperature ?? null : null;
+  // Fonte única de presença (presente/ausente só com leitura recente; offline/desconhecido => null)
+  const presenca    = dispositivo?.estadoPresenca === 'presente' ? true
+                    : dispositivo?.estadoPresenca === 'ausente' ? false : null;
+  const risco       = presenca === true && temp != null && temp >= 35;
+  const tempAlta    = temp != null && temp >= 35;
+  const duracao     = dispositivo?.msDesdeUltimaLeitura != null ? formatarDuracao(dispositivo.msDesdeUltimaLeitura) : null;
+  const visto       = duracao ? t('devices_ago').replace('{n}', duracao) : '—';
+
+  const pillLabel   = !dispositivo ? t('home_noDevice') : online ? t('home_connected') : t('home_offline');
+  const pillColor   = online ? '#4ADE80' : '#F87171';
+  const estado      = dispositivo?.estadoPresenca;
+  // O cartão principal reflete a presença REAL (antes mostrava "Tudo seguro" fixo)
+  const heroTitle   = !dispositivo ? t('home_noDevice')
+    : estado === 'offline' ? t('home_offlineTitle')
+    : risco ? t('home_heroRisk')
+    : estado === 'presente' ? t('devices_presenceYes')
+    : estado === 'ausente' ? t('devices_presenceNo')
+    : t('home_noReading');
+  const heroSub     = !dispositivo ? t('home_noDeviceHint')
+    : estado === 'ausente' ? `${t('home_presence')}: ${t('home_notDetected')} · ${t('home_lastSeenLabel')}: ${visto}`
+    : `${t('home_lastSeenLabel')}: ${visto}`;
 
   const cardShadow = Platform.select({
     ios: { shadowColor: '#2B1E63', shadowOffset: { width: 0, height: 4 }, shadowOpacity: isDark ? 0.25 : 0.06, shadowRadius: 14 },
@@ -183,8 +213,8 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
           <View style={styles.headerTextWrap}>
-            <Text style={[styles.greeting, { color: C.text }]}>Olá, Maria! 👋</Text>
-            <Text style={[styles.greetingSub, { color: C.textSecondary }]}>Tudo está sob controle hoje.</Text>
+            <Text style={[styles.greeting, { color: C.text }]}>{t('home_greeting')}</Text>
+            <Text style={[styles.greetingSub, { color: C.textSecondary }]}>{t('home_greetingSub')}</Text>
           </View>
 
           <TouchableOpacity
@@ -208,10 +238,10 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.heroTopRow}>
-              <Text style={styles.heroLabel}>Status da cadeirinha</Text>
+              <Text style={styles.heroLabel}>{t('home_heroLabel')}</Text>
               <View style={styles.heroPill}>
-                <PulseDot color="#4ADE80" />
-                <Text style={styles.heroPillText}>Conectada</Text>
+                <PulseDot color={pillColor} />
+                <Text style={styles.heroPillText}>{pillLabel}</Text>
               </View>
             </View>
 
@@ -223,8 +253,8 @@ export default function HomeScreen() {
                 </View>
               </View>
               <View style={{ marginLeft: 14, flexShrink: 1 }}>
-                <Text style={styles.heroTitle}>Tudo seguro</Text>
-                <Text style={styles.heroSubtitle}>Última atualização: agora</Text>
+                <Text style={styles.heroTitle}>{heroTitle}</Text>
+                <Text style={styles.heroSubtitle}>{heroSub}</Text>
               </View>
             </View>
 
@@ -245,9 +275,13 @@ export default function HomeScreen() {
               <View style={[styles.smallIconCircle, { backgroundColor: C.accentSoft }]}>
                 <Thermometer size={20} color={Brand.purple} />
               </View>
-              <Text style={[styles.smallLabel, { color: C.textSecondary }]}>Temperatura</Text>
-              <Text style={[styles.smallValue, { color: C.text }]}>24°C</Text>
-              <Text style={styles.smallStatusGood}>Normal</Text>
+              <Text style={[styles.smallLabel, { color: C.textSecondary }]}>{t('home_temperature')}</Text>
+              <Text style={[styles.smallValue, { color: C.text }]}>{temp != null ? `${Math.round(temp)}°C` : '—'}</Text>
+              {temp == null
+                ? <Text style={[styles.smallStatusInfo, { color: C.textMuted }]}>{t('home_noReading')}</Text>
+                : tempAlta
+                  ? <Text style={[styles.smallStatusInfo, { color: '#E6485E' }]}>{t('home_high')}</Text>
+                  : <Text style={styles.smallStatusGood}>{t('home_normal')}</Text>}
             </View>
           </FadeInUp>
 
@@ -256,26 +290,16 @@ export default function HomeScreen() {
               <View style={[styles.smallIconCircle, { backgroundColor: C.accentSoft }]}>
                 <User size={20} color={Brand.purple} />
               </View>
-              <Text style={[styles.smallLabel, { color: C.textSecondary }]}>Presença</Text>
-              <Text style={[styles.smallValue, { color: C.text }]}>Criança</Text>
-              <Text style={[styles.smallStatusInfo, { color: Brand.purple }]}>Detectada</Text>
+              <Text style={[styles.smallLabel, { color: C.textSecondary }]}>{t('home_presence')}</Text>
+              <Text style={[styles.smallValue, { color: C.text }]}>
+                {presenca === true ? t('home_child') : presenca === false ? t('home_empty') : '—'}
+              </Text>
+              <Text style={[styles.smallStatusInfo, { color: presenca === true ? Brand.purple : C.textMuted }]}>
+                {presenca === true ? t('home_detected') : presenca === false ? t('home_notDetected') : estado === 'offline' ? t('home_offline') : t('home_noReading')}
+              </Text>
             </View>
           </FadeInUp>
         </View>
-
-        {/* ── Distância do responsável ── */}
-        <FadeInUp delay={250}>
-          <View style={[styles.wideCard, { backgroundColor: C.backgroundCard }, cardShadow]}>
-            <View style={[styles.smallIconCircle, { backgroundColor: C.accentSoft }]}>
-              <MapPin size={20} color={Brand.purple} />
-            </View>
-            <View style={{ marginLeft: 14 }}>
-              <Text style={[styles.smallLabel, { color: C.textSecondary }]}>Distância do responsável</Text>
-              <Text style={[styles.smallValue, { color: C.text }]}>12 m</Text>
-              <Text style={styles.smallStatusGood}>Muito próximo</Text>
-            </View>
-          </View>
-        </FadeInUp>
 
         {/* ── Banner: Viagem tranquila ── */}
         <FadeInUp delay={310}>
@@ -287,8 +311,8 @@ export default function HomeScreen() {
               <ShieldCheck size={22} color="#fff" />
             </View>
             <View style={{ flex: 1, marginLeft: 14 }}>
-              <Text style={[styles.tripTitle, { color: C.text }]}>Viagem tranquila</Text>
-              <Text style={[styles.tripSubtitle, { color: C.textSecondary }]}>Tudo dentro dos parâmetros normais.</Text>
+              <Text style={[styles.tripTitle, { color: C.text }]}>{t('home_tripTitle')}</Text>
+              <Text style={[styles.tripSubtitle, { color: C.textSecondary }]}>{t('home_tripSubtitle')}</Text>
             </View>
             <ChevronRight size={20} color={C.textMuted} />
           </Pressable>

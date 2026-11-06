@@ -6,7 +6,7 @@
 // ✅ Sons sintéticos gerados em tempo real (sem arquivos externos)
 // ✅ Dark/Light automático + animações Bluetooth
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   useColorScheme, Animated, Modal, TextInput, Platform,
@@ -25,6 +25,18 @@ import {
   ScanLine, Loader,
 } from 'lucide-react-native';
 import { Colors, Brand } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
+import { useI18n } from '@/contexts/I18nContext';
+import {
+  ouvirDispositivos,
+  adicionarDispositivo,
+  atualizarDispositivo,
+  removerDispositivo,
+  definirDispositivoPrincipal,
+  estaOnline,
+  estadoPresenca,
+  formatarDuracao,
+} from '@/services/dispositivos';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 type DeviceStatus = 'conectado' | 'desconectado' | 'pareando';
@@ -34,13 +46,15 @@ interface Device {
   name: string;
   model: string;
   status: DeviceStatus;
-  battery: number;
+  battery: number | null;
   signal: number;
-  temperature: number;
+  temperature: number | null;
   lastSeen: string;
   firmware: string;
   macAddress: string;
   isMain: boolean;
+  presence: boolean | null;
+  lastSeenAt: number | null;
 }
 
 interface FoundDevice {
@@ -51,44 +65,16 @@ interface FoundDevice {
   signal: number;
 }
 
-// ─── Dados mock ───────────────────────────────────────────────────────────────
-const INITIAL_DEVICES: Device[] = [
-  {
-    id: '1',
-    name: 'Cadeirinha da Sofia',
-    model: 'InfasCare Pro X1',
-    status: 'conectado',
-    battery: 78,
-    signal: 4,
-    temperature: 24,
-    lastSeen: 'Agora',
-    firmware: 'v2.4.1',
-    macAddress: 'IC:A1:3F:2B:9D:E0',
-    isMain: true,
-  },
-  {
-    id: '2',
-    name: 'Cadeirinha do carro',
-    model: 'InfasCare Lite S2',
-    status: 'desconectado',
-    battery: 15,
-    signal: 0,
-    temperature: 0,
-    lastSeen: 'Há 2 horas',
-    firmware: 'v2.3.0',
-    macAddress: 'IC:B2:7C:1A:4E:F1',
-    isMain: false,
-  },
-];
+// ─── Dados mock (dispositivos "encontrados" no scan simulado) ─────────────────
 
 // Cadeirinhas "encontradas" no scan
-const MOCK_FOUND: FoundDevice[] = [
-  { id: 'f1', name: 'InfasCare Pro X1', model: 'InfasCare Pro X1', macAddress: 'IC:C3:9A:3D:5F:A2', signal: 3 },
-  { id: 'f2', name: 'InfasCare Lite S2', model: 'InfasCare Lite S2', macAddress: 'IC:D4:2E:8B:1C:F3', signal: 2 },
-];
+// Não existe varredura Bluetooth: o ESP32 se registra sozinho no Firestore com a conta do
+// responsável, então não há dispositivos "encontrados" para listar aqui.
+const MOCK_FOUND: FoundDevice[] = [];
 
 // ─── Helper: bateria ──────────────────────────────────────────────────────────
-function getBatteryInfo(level: number) {
+function getBatteryInfo(level: number | null) {
+  if (level == null) return { color: '#A0AEC0', Icon: BatteryMedium };
   if (level <= 15) return { color: '#E53E3E', Icon: BatteryLow    };
   if (level <= 35) return { color: '#ED8936', Icon: BatteryLow    };
   if (level <= 70) return { color: '#D69E2E', Icon: BatteryMedium };
@@ -318,7 +304,7 @@ function ScanModal({
             </Text>
             <Text style={[s.sheetSub, { color: C.textSecondary }]}>
               {phase === 'scanning'
-                ? 'Aproxime a cadeirinha e aguarde'
+                ? 'Aguarde um instante'
                 : `${available.length} cadeirinha${available.length !== 1 ? 's' : ''} InfasCare próxima${available.length !== 1 ? 's' : ''}`
               }
             </Text>
@@ -341,7 +327,7 @@ function ScanModal({
               </View>
             </View>
             <Text style={[s.scanHint, { color: C.textSecondary }]}>
-              Verificando dispositivos Bluetooth próximos...
+              Procurando cadeirinhas vinculadas à sua conta...
             </Text>
           </View>
         )}
@@ -352,7 +338,7 @@ function ScanModal({
               <View style={[s.noDeviceBox, { backgroundColor: C.backgroundSoft }]}>
                 <BluetoothOff size={36} color={C.textMuted} strokeWidth={1.5} />
                 <Text style={[s.noDeviceText, { color: C.textSecondary }]}>
-                  Nenhuma cadeirinha InfasCare encontrada.{'\n'}Tente deixar o dispositivo mais próximo.
+                  Nenhuma cadeirinha nova encontrada.{'\n'}Ligue o ESP32 com o firmware InfasCare e o e-mail desta conta: ele aparece aqui sozinho.
                 </Text>
               </View>
             ) : (
@@ -450,6 +436,7 @@ function DeviceCard({
   onEdit: () => void; onRemove: () => void;
   onToggleConnect: () => void; onSetMain: () => void;
 }) {
+  const { t } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const menuAnim  = useRef(new Animated.Value(0)).current;
@@ -457,6 +444,9 @@ function DeviceCard({
   const isConnected = device.status === 'conectado';
   const btColor     = isConnected ? Brand.purple : C.textMuted;
   const battInfo    = getBatteryInfo(device.battery);
+  const ultimaLeitura = device.lastSeenAt != null
+    ? t('devices_ago').replace('{n}', formatarDuracao(Date.now() - device.lastSeenAt))
+    : device.lastSeen;
   const statusMeta  = isConnected
     ? { label: 'Conectado',    color: '#38A169', bg: '#F0FFF4' }
     : { label: 'Desconectado', color: '#E53E3E', bg: '#FFF5F5' };
@@ -499,9 +489,14 @@ function DeviceCard({
                 : <AlertCircle  size={11} color={statusMeta.color} strokeWidth={2.5} />
               }
               <Text style={[s.pillText, { color: statusMeta.color }]}>
-                {statusMeta.label} · {device.lastSeen}
+                {statusMeta.label} · {ultimaLeitura}
               </Text>
             </View>
+            {(estadoPresenca(device) === 'presente' || estadoPresenca(device) === 'ausente') && (
+              <Text style={[s.devModel, { color: estadoPresenca(device) === 'presente' ? Brand.purple : C.textMuted }]}>
+                {estadoPresenca(device) === 'presente' ? t('devices_presenceYes') : t('devices_presenceNo')}
+              </Text>
+            )}
           </View>
 
           <TouchableOpacity onPress={toggleMenu} style={s.menuBtn} hitSlop={10}>
@@ -522,19 +517,19 @@ function DeviceCard({
           <View style={[s.metrics, { borderTopColor: C.border }]}>
             <View style={s.metric}>
               <battInfo.Icon size={16} color={battInfo.color} strokeWidth={2} />
-              <Text style={[s.metricVal, { color: battInfo.color }]}>{device.battery}%</Text>
+              <Text style={[s.metricVal, { color: battInfo.color }]}>{device.battery != null ? `${Math.round(device.battery)}%` : '—'}</Text>
               <Text style={[s.metricLbl, { color: C.textMuted }]}>Bateria</Text>
             </View>
             <View style={[s.metricDiv, { backgroundColor: C.border }]} />
             <View style={s.metric}>
               <SignalBars level={device.signal} color={Brand.blue} />
               <Text style={[s.metricVal, { color: Brand.blue }]}>{['—','Fraco','Razoável','Bom','Ótimo'][device.signal]}</Text>
-              <Text style={[s.metricLbl, { color: C.textMuted }]}>Sinal BT</Text>
+              <Text style={[s.metricLbl, { color: C.textMuted }]}>{device.lastSeenAt != null ? 'Wi-Fi' : 'Sinal BT'}</Text>
             </View>
             <View style={[s.metricDiv, { backgroundColor: C.border }]} />
             <View style={s.metric}>
               <Thermometer size={16} color="#ED8936" strokeWidth={2} />
-              <Text style={[s.metricVal, { color: '#ED8936' }]}>{device.temperature}°C</Text>
+              <Text style={[s.metricVal, { color: '#ED8936' }]}>{device.temperature != null ? `${Math.round(device.temperature)}°C` : '—'}</Text>
               <Text style={[s.metricLbl, { color: C.textMuted }]}>Temp.</Text>
             </View>
           </View>
@@ -684,7 +679,10 @@ export default function DispositivosScreen() {
   const C      = Colors[scheme];
   const isDark = scheme === 'dark';
 
-  const [devices, setDevices]         = useState<Device[]>(INITIAL_DEVICES);
+  const { user } = useAuth();
+
+  const [rawDevices, setRawDevices]  = useState<Device[]>([]);
+  const [agora, setAgora]            = useState(() => Date.now());
   const [renameModal, setRenameModal] = useState<{ open: boolean; id: string; name: string }>({ open: false, id: '', name: '' });
   const [removeModal, setRemoveModal] = useState<{ open: boolean; id: string; name: string }>({ open: false, id: '', name: '' });
   const [scanModal, setScanModal]     = useState(false);
@@ -692,6 +690,31 @@ export default function DispositivosScreen() {
 
   const scanRotate = useRef(new Animated.Value(0)).current;
   const scanLoop   = useRef<Animated.CompositeAnimation>();
+
+  // Sincroniza a lista de dispositivos com o Firestore, filtrada pelo
+  // responsável logado (cada usuário só vê os próprios dispositivos).
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = ouvirDispositivos(user.uid, (lista) => {
+      setRawDevices(lista);
+    });
+    return unsubscribe;
+  }, [user]);
+
+  // Reavalia online/offline a cada 5 s (ESP32 desligado só para de escrever)
+  useEffect(() => {
+    const id = setInterval(() => setAgora(Date.now()), 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  const devices = useMemo<Device[]>(
+    () => rawDevices.map((d) =>
+      d.status === 'pareando'
+        ? d
+        : { ...d, status: estaOnline(d, agora) ? 'conectado' : 'desconectado' }
+    ),
+    [rawDevices, agora],
+  );
 
   // Carrega sons uma única vez ao montar a tela
   useEffect(() => {
@@ -710,39 +733,36 @@ export default function DispositivosScreen() {
 
     if (dev.status === 'conectado') {
       await hapticAndSoundDisconnect();
-      setDevices(prev => prev.map(d =>
-        d.id === id ? { ...d, status: 'desconectado', lastSeen: 'Agora mesmo', signal: 0, temperature: 0 } : d
-      ));
+      await atualizarDispositivo(id, { status: 'desconectado', lastSeen: 'Agora mesmo', signal: 0, temperature: 0 });
     } else {
-      setDevices(prev => prev.map(d => d.id === id ? { ...d, status: 'pareando' } : d));
+      await atualizarDispositivo(id, { status: 'pareando' });
       setTimeout(async () => {
         await hapticAndSoundConnect();
-        setDevices(prev => prev.map(d =>
-          d.id === id ? { ...d, status: 'conectado', lastSeen: 'Agora', signal: 3 } : d
-        ));
+        await atualizarDispositivo(id, { status: 'conectado', lastSeen: 'Agora', signal: 3 });
       }, 2000);
     }
   };
 
   const handleSetMain = async (id: string) => {
-    setDevices(prev => prev.map(d => ({ ...d, isMain: d.id === id })));
+    if (!user) return;
+    await definirDispositivoPrincipal(user.uid, id, devices.map(d => d.id));
     await hapticSuccess();
   };
 
-  const handleRename = (name: string) => {
+  const handleRename = async (name: string) => {
     if (!name.trim()) return;
-    setDevices(prev => prev.map(d => d.id === renameModal.id ? { ...d, name: name.trim() } : d));
+    await atualizarDispositivo(renameModal.id, { name: name.trim() });
     setRenameModal({ open: false, id: '', name: '' });
   };
 
-  const handleRemove = () => {
-    setDevices(prev => prev.filter(d => d.id !== removeModal.id));
+  const handleRemove = async () => {
+    await removerDispositivo(removeModal.id);
     setRemoveModal({ open: false, id: '', name: '' });
   };
 
-  const handleFoundConnect = (fd: FoundDevice) => {
-    const newDev: Device = {
-      id: fd.id,
+  const handleFoundConnect = async (fd: FoundDevice) => {
+    if (!user) return;
+    await adicionarDispositivo(user.uid, {
       name: fd.name,
       model: fd.model,
       status: 'conectado',
@@ -753,8 +773,7 @@ export default function DispositivosScreen() {
       firmware: 'v2.4.1',
       macAddress: fd.macAddress,
       isMain: devices.length === 0,
-    };
-    setDevices(prev => [...prev, newDev]);
+    });
   };
 
   const startScan = () => {

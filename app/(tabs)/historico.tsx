@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { ouvirEventosPresenca, type EventoPresenca } from '@/services/eventos';
 import {
   View,
   Text,
@@ -25,16 +27,19 @@ import {
   CheckCircle2,
   Clock3,
   TrendingUp,
+  UserCheck,
+  UserMinus,
 } from 'lucide-react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect, Line } from 'react-native-svg';
 import { Colors, Brand } from '@/constants/theme';
+import { useI18n } from '@/contexts/I18nContext';
 
 const { width } = Dimensions.get('window');
 const CHART_HEIGHT = 190;
 const BAR_WIDTH = 22;
 
 type Period = '7d' | '15d' | '30d';
-type EventType = 'critico' | 'temperatura' | 'viagem' | 'bateria' | 'conexao' | 'seguro';
+type EventType = 'critico' | 'temperatura' | 'viagem' | 'bateria' | 'conexao' | 'seguro' | 'presenca' | 'ausencia';
 
 interface HistoryEvent {
   id: string;
@@ -51,65 +56,7 @@ const periods: { key: Period; label: string }[] = [
   { key: '30d', label: '30 dias' },
 ];
 
-const chartData = [
-  { day: '12/05', value: 20 },
-  { day: '13/05', value: 25 },
-  { day: '15/05', value: 18 },
-  { day: '16/05', value: 27 },
-  { day: '17/05', value: 12 },
-  { day: '18/05', value: 21 },
-];
-
-const historyEvents: HistoryEvent[] = [
-  {
-    id: '1',
-    type: 'critico',
-    title: 'Alerta crítico',
-    description: 'Criança deixada na cadeirinha.',
-    time: '09:41',
-    date: 'Hoje',
-  },
-  {
-    id: '2',
-    type: 'temperatura',
-    title: 'Temperatura alta',
-    description: 'Temperatura interna acima do normal.',
-    time: '09:20',
-    date: 'Hoje',
-  },
-  {
-    id: '3',
-    type: 'viagem',
-    title: 'Viagem finalizada',
-    description: 'Viagem concluída com sucesso.',
-    time: 'Ontem',
-    date: 'Ontem',
-  },
-  {
-    id: '4',
-    type: 'bateria',
-    title: 'Bateria do dispositivo',
-    description: 'Dispositivo carregado até 85%.',
-    time: 'Ontem',
-    date: 'Ontem',
-  },
-  {
-    id: '5',
-    type: 'conexao',
-    title: 'Cadeirinha conectada',
-    description: 'Conexão estabelecida com o aplicativo.',
-    time: 'Seg 16:10',
-    date: 'Esta semana',
-  },
-  {
-    id: '6',
-    type: 'seguro',
-    title: 'Monitoramento seguro',
-    description: 'Nenhuma anormalidade encontrada.',
-    time: 'Seg 08:30',
-    date: 'Esta semana',
-  },
-];
+const PERIOD_DAYS: Record<Period, number> = { '7d': 7, '15d': 15, '30d': 30 };
 
 const eventConfig: Record<EventType, { color: string; bg: string; icon: any }> = {
   critico: { color: '#E6485E', bg: '#FFF1F3', icon: AlertTriangle },
@@ -118,6 +65,8 @@ const eventConfig: Record<EventType, { color: string; bg: string; icon: any }> =
   bateria: { color: '#6A5AE0', bg: '#F0EEFF', icon: BatteryMedium },
   conexao: { color: '#38A169', bg: '#ECFFF4', icon: Wifi },
   seguro: { color: '#45B46B', bg: '#F0FFF5', icon: ShieldCheck },
+  presenca: { color: '#45B46B', bg: '#F0FFF5', icon: UserCheck },
+  ausencia: { color: '#6A5AE0', bg: '#F0EEFF', icon: UserMinus },
 };
 
 function FadeInUp({
@@ -214,144 +163,6 @@ function MetricCard({
   );
 }
 
-function HistoryChart({ C, isDark }: { C: typeof Colors.light; isDark: boolean }) {
-  const progress = useRef(new Animated.Value(0)).current;
-  const shimmer = useRef(new Animated.Value(0)).current;
-  const maxValue = Math.max(...chartData.map(item => item.value));
-  const chartWidth = width - 64;
-
-  useEffect(() => {
-    Animated.timing(progress, {
-      toValue: 1,
-      duration: 1000,
-      delay: 250,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmer, {
-          toValue: 1,
-          duration: 1800,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(shimmer, {
-          toValue: 0,
-          duration: 1800,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-
-    loop.start();
-    return () => loop.stop();
-  }, []);
-
-  const shimmerTranslate = shimmer.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-chartWidth, chartWidth],
-  });
-
-  const shadow = Platform.select({
-    ios: {
-      shadowColor: '#2B1E63',
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: isDark ? 0.18 : 0.07,
-      shadowRadius: 22,
-    },
-    android: { elevation: 3 },
-  });
-
-  return (
-    <FadeInUp delay={170}>
-      <View style={[styles.chartCard, { backgroundColor: C.backgroundCard, borderColor: C.border }, shadow]}>
-        <View style={styles.chartHeader}>
-          <View>
-            <Text style={[styles.sectionTitle, { color: C.text }]}>Atividades por dia</Text>
-            <Text style={[styles.sectionSubtitle, { color: C.textSecondary }]}>Resumo dos últimos registros</Text>
-          </View>
-
-          <View style={[styles.chartBadge, { backgroundColor: Brand.purple + '14' }]}>
-            <TrendingUp size={15} color={Brand.purple} />
-            <Text style={styles.chartBadgeText}>+12%</Text>
-          </View>
-        </View>
-
-        <View style={styles.chartArea}>
-          <Svg width="100%" height={CHART_HEIGHT} style={StyleSheet.absoluteFill}>
-            <Defs>
-              <LinearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={Brand.lilac} />
-                <Stop offset="1" stopColor={Brand.purple} />
-              </LinearGradient>
-            </Defs>
-
-            {[0, 1, 2, 3].map(index => (
-              <Line
-                key={index}
-                x1="0"
-                x2="100%"
-                y1={32 + index * 38}
-                y2={32 + index * 38}
-                stroke={isDark ? '#2D2850' : '#EEEAF8'}
-                strokeWidth="1"
-                strokeDasharray="5 8"
-              />
-            ))}
-          </Svg>
-
-          <View style={styles.yAxis}>
-            {[30, 20, 10, 0].map(item => (
-              <Text key={item} style={[styles.axisText, { color: C.textMuted }]}>{item}</Text>
-            ))}
-          </View>
-
-          <View style={styles.barsWrap}>
-            {chartData.map((item, index) => {
-              const height = (item.value / maxValue) * 112 + 12;
-              const animatedHeight = progress.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, height],
-              });
-
-              return (
-                <View key={item.day} style={styles.barItem}>
-                  <View style={styles.barTrack}>
-                    <Animated.View
-                      style={[
-                        styles.bar,
-                        {
-                          height: animatedHeight,
-                          opacity: progress,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text style={[styles.barLabel, { color: C.textSecondary }]}>{item.day}</Text>
-                </View>
-              );
-            })}
-          </View>
-
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.shimmer,
-              {
-                transform: [{ translateX: shimmerTranslate }, { rotate: '18deg' }],
-                opacity: isDark ? 0.12 : 0.2,
-              },
-            ]}
-          />
-        </View>
-      </View>
-    </FadeInUp>
-  );
-}
-
 function EventCard({
   item,
   C,
@@ -394,7 +205,7 @@ function EventCard({
 
           <View style={styles.eventText}>
             <Text style={[styles.eventTitle, { color: C.text }]}>{item.title}</Text>
-            <Text style={[styles.eventDescription, { color: C.textSecondary }]}>{item.description}</Text>
+            {!!item.description && <Text style={[styles.eventDescription, { color: C.textSecondary }]}>{item.description}</Text>}
           </View>
 
           <View style={styles.eventTimeWrap}>
@@ -407,10 +218,40 @@ function EventCard({
 }
 
 export default function HistoricoScreen() {
+  const { t, language } = useI18n();
+  const { user } = useAuth();
   const scheme = useColorScheme() ?? 'light';
   const C = Colors[scheme];
   const isDark = scheme === 'dark';
   const [period, setPeriod] = useState<Period>('7d');
+  const [eventos, setEventos] = useState<EventoPresenca[]>([]);
+
+  // Eventos reais gravados pelo ESP32 (presença/ausência), em tempo real
+  useEffect(() => {
+    if (!user) { setEventos([]); return; }
+    return ouvirEventosPresenca(user.uid, setEventos);
+  }, [user]);
+
+  const historyEvents = useMemo<HistoryEvent[]>(() => {
+    const locale = language === 'en' ? 'en-US' : language === 'es' ? 'es-ES' : 'pt-BR';
+    const limite = Date.now() - PERIOD_DAYS[period] * 24 * 60 * 60 * 1000;
+    const hoje = new Date().toDateString();
+    const ontem = new Date(Date.now() - 24 * 60 * 60 * 1000).toDateString();
+    return eventos
+      .filter((e) => e.quando != null && e.quando >= limite)
+      .map((e) => {
+        const d = new Date(e.quando as number);
+        const dia = d.toDateString();
+        return {
+          id: e.id,
+          type: e.tipo === 'presenca' ? 'presenca' : 'ausencia',
+          title: e.tipo === 'presenca' ? t('history_evPresence') : t('history_evAbsence'),
+          description: '',
+          time: d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }),
+          date: dia === hoje ? t('history_today') : dia === ontem ? t('history_yesterday') : d.toLocaleDateString(locale),
+        } as HistoryEvent;
+      });
+  }, [eventos, period, language, t]);
 
   const groupedEvents = useMemo(() => {
     return historyEvents.reduce<Record<string, HistoryEvent[]>>((acc, event) => {
@@ -418,7 +259,7 @@ export default function HistoricoScreen() {
       acc[event.date].push(event);
       return acc;
     }, {});
-  }, []);
+  }, [historyEvents]);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: C.background }]} edges={['top']}>
@@ -431,8 +272,8 @@ export default function HistoricoScreen() {
         <FadeInUp>
           <View style={styles.header}>
             <View>
-              <Text style={[styles.headerTitle, { color: C.text }]}>Histórico</Text>
-              <Text style={[styles.headerSubtitle, { color: C.textSecondary }]}>Acompanhe os registros da cadeirinha</Text>
+              <Text style={[styles.headerTitle, { color: C.text }]}>{t('history_title')}</Text>
+              <Text style={[styles.headerSubtitle, { color: C.textSecondary }]}>{t('history_subtitle')}</Text>
             </View>
 
             <TouchableOpacity
@@ -448,6 +289,11 @@ export default function HistoricoScreen() {
           <View style={[styles.periodCard, { backgroundColor: C.backgroundSoft }]}>
             {periods.map(item => {
               const active = period === item.key;
+              const periodLabels: Record<Period, string> = {
+                '7d': t('history_period7d'),
+                '15d': t('history_period15d'),
+                '30d': t('history_period30d'),
+              };
               return (
                 <TouchableOpacity
                   key={item.key}
@@ -456,7 +302,7 @@ export default function HistoricoScreen() {
                   style={[styles.periodButton, active && styles.periodButtonActive]}
                 >
                   <Text style={[styles.periodText, { color: active ? '#FFFFFF' : C.textSecondary }]}>
-                    {item.label}
+                    {periodLabels[item.key]}
                   </Text>
                 </TouchableOpacity>
               );
@@ -464,49 +310,25 @@ export default function HistoricoScreen() {
           </View>
         </FadeInUp>
 
-        <View style={styles.metricsRow}>
-          <MetricCard
-            C={C}
-            delay={120}
-            value={103}
-            label="Registros"
-            color={Brand.purple}
-            icon={<Clock3 size={19} color={Brand.purple} />}
-          />
-          <MetricCard
-            C={C}
-            delay={170}
-            value={96}
-            suffix="%"
-            label="Segurança"
-            color="#45B46B"
-            icon={<CheckCircle2 size={19} color="#45B46B" />}
-          />
-          <MetricCard
-            C={C}
-            delay={220}
-            value={2}
-            label="Alertas"
-            color="#E6485E"
-            icon={<AlertTriangle size={19} color="#E6485E" />}
-          />
-        </View>
-
-        <HistoryChart C={C} isDark={isDark} />
-
         <FadeInUp delay={260}>
           <View style={styles.sectionRow}>
             <View>
-              <Text style={[styles.sectionTitle, { color: C.text }]}>Eventos recentes</Text>
-              <Text style={[styles.sectionSubtitle, { color: C.textSecondary }]}>Linha do tempo do monitoramento</Text>
+              <Text style={[styles.sectionTitle, { color: C.text }]}>{t('history_eventsTitle')}</Text>
+              <Text style={[styles.sectionSubtitle, { color: C.textSecondary }]}>{t('history_eventsSubtitle')}</Text>
             </View>
 
             <TouchableOpacity style={[styles.filterButton, { borderColor: C.border }]}>
-              <Text style={[styles.filterText, { color: Brand.purple }]}>Todos</Text>
+              <Text style={[styles.filterText, { color: Brand.purple }]}>{t('history_filterAll')}</Text>
               <ChevronDown size={16} color={Brand.purple} />
             </TouchableOpacity>
           </View>
         </FadeInUp>
+
+        {historyEvents.length === 0 && (
+          <Text style={[styles.sectionSubtitle, { color: C.textSecondary, textAlign: 'center', marginTop: 24 }]}>
+            {t('history_empty')}
+          </Text>
+        )}
 
         {Object.entries(groupedEvents).map(([date, events], groupIndex) => (
           <View key={date} style={styles.timelineGroup}>

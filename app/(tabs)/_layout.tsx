@@ -2,10 +2,12 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 import { Colors, Brand } from '@/constants/theme';
+import { usePushRegistration } from '@/hooks/usePushRegistration';
 
 export default function TabLayout() {
   const scheme = useColorScheme() ?? 'light';
   const C = Colors[scheme];
+  usePushRegistration();
 
   return (
     <Tabs

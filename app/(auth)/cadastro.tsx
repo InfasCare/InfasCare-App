@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { TextInputMask } from 'react-native-masked-text';
 import { Colors, Brand } from '@/constants/theme';
+import { useAuth, traduzErroFirebase } from '@/contexts/AuthContext';
 
 // ─── Partícula de confetti ────────────────────────────────────────────────────
 function Particle({ color, startX, delay, size = 8 }) {
@@ -244,6 +245,8 @@ export default function CadastroScreen() {
   const scheme = useColorScheme() ?? 'light';
   const C = Colors[scheme];
 
+  const { signUp } = useAuth();
+
   const [form, setForm] = useState({ name: '', email: '', cpf: '', phone: '', password: '', confirm: '' });
   const [errors, setErrors] = useState<any>({});
   const [secureText, setSecureText] = useState(true);
@@ -252,6 +255,7 @@ export default function CadastroScreen() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [errorAlert, setErrorAlert] = useState({ visible: false, title: '', message: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function validate() {
     const e: any = {};
@@ -272,7 +276,7 @@ export default function CadastroScreen() {
     return e;
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     const e = validate();
     setErrors(e);
     if (Object.keys(e).length > 0) {
@@ -285,7 +289,28 @@ export default function CadastroScreen() {
       setErrorAlert({ visible: true, title: 'Campos incompletos', message: msgs[first] });
       return;
     }
-    setShowSuccess(true);
+
+    try {
+      setIsSubmitting(true);
+      await signUp({
+        name: form.name.trim(),
+        email: form.email.trim(),
+        password: form.password,
+        cpf: form.cpf.replace(/\D/g, ''),
+        phone: form.phone.replace(/\D/g, ''),
+      });
+      setShowSuccess(true);
+    } catch (error: any) {
+      // Log completo no terminal do Expo, para facilitar o diagnóstico
+      console.error('Erro no cadastro (InfasCare):', error?.code, error?.message);
+      setErrorAlert({
+        visible: true,
+        title: 'Erro ao cadastrar',
+        message: traduzErroFirebase(error?.code),
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -405,9 +430,14 @@ export default function CadastroScreen() {
             </View>
           )}
 
-          <TouchableOpacity style={styles.button} onPress={handleSubmit} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={[styles.button, { opacity: isSubmitting ? 0.7 : 1 }]}
+            onPress={handleSubmit}
+            activeOpacity={0.85}
+            disabled={isSubmitting}
+          >
             <Ionicons name="person-add-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.buttonText}>Criar conta</Text>
+            <Text style={styles.buttonText}>{isSubmitting ? 'Criando conta...' : 'Criar conta'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => router.push('/(auth)/login')} style={{ paddingVertical: 4 }}>

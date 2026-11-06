@@ -8,6 +8,9 @@ import { useRouter } from 'expo-router';
 import Svg, { Circle, Defs, LinearGradient, Stop, Path } from 'react-native-svg';
 import { ChevronLeft, Baby, Thermometer, User, BatteryMedium } from 'lucide-react-native';
 import { Colors, Brand } from '@/constants/theme';
+import { useI18n } from '@/contexts/I18nContext';
+import { useDispositivoPrincipal } from '@/hooks/useDispositivoPrincipal';
+import { formatarDuracao } from '@/services/dispositivos';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
@@ -32,7 +35,7 @@ function FadeInUp({ delay = 0, style, children }: { delay?: number; style?: any;
 }
 
 // ─── Anel de status: rotação lenta + glow "respirando" atrás ──────────────────
-function StatusRing({ isDark }: { isDark: boolean }) {
+function StatusRing({ isDark, title, subtitle }: { isDark: boolean; title: string; subtitle: string }) {
   const spinVal = useRef(new Animated.Value(0)).current;
   const breath = useRef(new Animated.Value(0)).current;
   const scaleIn = useRef(new Animated.Value(0.85)).current;
@@ -92,8 +95,8 @@ function StatusRing({ isDark }: { isDark: boolean }) {
 
       <View style={[styles.ringInner, { backgroundColor: isDark ? '#1C1835' : '#FFFFFF' }]}>
         <Baby size={38} color={Brand.purple} strokeWidth={1.8} />
-        <Text style={[styles.ringTitle, { color: isDark ? '#F0EEFF' : '#1a1a2e' }]}>Criança segura</Text>
-        <Text style={styles.ringSubtitle}>em tempo real</Text>
+        <Text style={[styles.ringTitle, { color: isDark ? '#F0EEFF' : '#1a1a2e' }]} numberOfLines={2}>{title}</Text>
+        <Text style={styles.ringSubtitle} numberOfLines={1}>{subtitle}</Text>
       </View>
     </Animated.View>
   );
@@ -138,7 +141,7 @@ function BatteryBar({ percent, color, delay = 0 }: { percent: number; color: str
       toValue: percent, duration: 1000, delay: delay + 250,
       easing: Easing.out(Easing.cubic), useNativeDriver: false,
     }).start();
-  }, []);
+  }, [percent]);
 
   const w = widthAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] });
 
@@ -183,6 +186,28 @@ export default function MonitoramentoScreen() {
   const C = Colors[scheme];
   const isDark = scheme === 'dark';
   const router = useRouter();
+  const { t } = useI18n();
+  const { dispositivo } = useDispositivoPrincipal();
+
+  // ── Dados reais (ESP32 -> Firestore) ──
+  const online   = !!dispositivo?.online;
+  const temp     = online ? dispositivo?.temperature ?? null : null;
+  // Fonte única de presença (presente/ausente só com leitura recente; offline/desconhecido => null)
+  const presenca = dispositivo?.estadoPresenca === 'presente' ? true
+                 : dispositivo?.estadoPresenca === 'ausente' ? false : null;
+  const bateria  = online ? dispositivo?.battery ?? null : null;
+  const risco    = presenca === true && temp != null && temp >= 35;
+  const duracao  = dispositivo?.msDesdeUltimaLeitura != null ? formatarDuracao(dispositivo.msDesdeUltimaLeitura) : null;
+  const visto    = duracao ? t('devices_ago').replace('{n}', duracao) : '—';
+
+  const ringTitle = !dispositivo ? t('home_noDevice')
+    : !online ? t('home_offlineTitle')
+    : risco ? t('monitoring_riskTitle')
+    : presenca === true ? t('devices_presenceYes')
+    : presenca === false ? t('devices_presenceNo')
+    : t('home_noReading');
+  const ringSub = !dispositivo ? t('monitoring_noDeviceSub')
+    : `${t('home_lastSeenLabel')}: ${visto}`;
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: C.background }]} edges={['top', 'bottom']}>
@@ -207,7 +232,7 @@ export default function MonitoramentoScreen() {
       >
         {/* ── Anel de status ── */}
         <View style={styles.ringSection}>
-          <StatusRing isDark={isDark} />
+          <StatusRing isDark={isDark} title={ringTitle} subtitle={ringSub} />
         </View>
 
         {/* ── Sensores ── */}
@@ -218,8 +243,8 @@ export default function MonitoramentoScreen() {
             icon={<Thermometer size={20} color={Brand.purple} />}
             iconBg={C.accentSoft}
             label="Temperatura"
-            value="24°C"
-            valueColor="#22B573"
+            value={temp != null ? `${Math.round(temp)}°C` : '—'}
+            valueColor={temp != null && temp >= 35 ? '#E6485E' : '#22B573'}
             right={<Sparkline color={Brand.purple} delay={100} />}
           />
 
@@ -229,8 +254,8 @@ export default function MonitoramentoScreen() {
             icon={<User size={20} color={Brand.purple} />}
             iconBg={C.accentSoft}
             label="Presença"
-            value="Detectada"
-            valueColor={Brand.purple}
+            value={presenca === true ? t('home_detected') : presenca === false ? t('home_notDetected') : '—'}
+            valueColor={presenca === true ? Brand.purple : C.textSecondary}
             right={<Sparkline color={Brand.purple} delay={170} />}
           />
 
@@ -240,9 +265,9 @@ export default function MonitoramentoScreen() {
             icon={<BatteryMedium size={20} color={Brand.purple} />}
             iconBg={C.accentSoft}
             label="Bateria do dispositivo"
-            value="85%"
+            value={bateria != null ? `${Math.round(bateria)}%` : '—'}
             valueColor={C.text}
-            right={<BatteryBar percent={85} color={Brand.purple} delay={240} />}
+            right={<BatteryBar percent={bateria ?? 0} color={Brand.purple} delay={240} />}
           />
         </View>
 

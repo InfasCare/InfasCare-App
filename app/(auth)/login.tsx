@@ -12,6 +12,7 @@ import AnimatedRN, {
   Easing as REasing,
 } from 'react-native-reanimated';
 import { Colors, Brand } from '@/constants/theme';
+import { useAuth, traduzErroFirebase } from '@/contexts/AuthContext';
 
 // ─── Custom Alert de erro ─────────────────────────────────────────────────────
 function ErrorAlert({ visible, title, message, onClose, C }) {
@@ -78,6 +79,8 @@ export default function LoginScreen() {
   const C = Colors[scheme];
   const isDark = scheme === 'dark';
 
+  const { signIn } = useAuth();
+
   const [email,       setEmail]       = useState('');
   const [password,    setPassword]    = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -85,6 +88,7 @@ export default function LoginScreen() {
   const [errors,      setErrors]      = useState<any>({});
   const [errorAlert,  setErrorAlert]  = useState({ visible: false, title: '', message: '' });
   const [isSuccessModalVisible, setSuccessModalVisible] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const offset = useSharedValue(0);
   useEffect(() => {
@@ -141,7 +145,7 @@ export default function LoginScreen() {
     return e;
   }
 
-  function handleLogin() {
+  async function handleLogin() {
     const e = validate();
     setErrors(e);
     if (Object.keys(e).length > 0) {
@@ -150,9 +154,25 @@ export default function LoginScreen() {
       setErrorAlert({ visible: true, title: 'Campos incompletos', message: msgs[first] });
       return;
     }
-    setSuccessModalVisible(true);
-    runModalAnimations();
-    setTimeout(() => { setSuccessModalVisible(false); router.push('/(tabs)'); }, 3000);
+
+    try {
+      setIsSubmitting(true);
+      await signIn(email.trim(), password);
+      setSuccessModalVisible(true);
+      runModalAnimations();
+      // O AuthGate (app/_layout.tsx) detecta o novo usuário autenticado e
+      // navega automaticamente para (tabs); aqui só cuidamos da animação.
+      setTimeout(() => setSuccessModalVisible(false), 2500);
+    } catch (error: any) {
+      console.error('Erro no login (InfasCare):', error?.code, error?.message);
+      setErrorAlert({
+        visible: true,
+        title: 'Erro ao entrar',
+        message: traduzErroFirebase(error?.code),
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   // Cor da onda: modo escuro usa roxo translúcido
@@ -286,8 +306,12 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={[styles.buttonPrimary, { backgroundColor: Brand.purple }]} onPress={handleLogin}>
-              <Text style={styles.buttonTextPrimary}>Entrar</Text>
+            <TouchableOpacity
+              style={[styles.buttonPrimary, { backgroundColor: Brand.purple, opacity: isSubmitting ? 0.7 : 1 }]}
+              onPress={handleLogin}
+              disabled={isSubmitting}
+            >
+              <Text style={styles.buttonTextPrimary}>{isSubmitting ? 'Entrando...' : 'Entrar'}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.buttonSecondary, { borderColor: Brand.purple }]} onPress={() => router.push('/(auth)/cadastro')}>
               <Text style={[styles.buttonTextSecondary, { color: Brand.purple }]}>Criar conta</Text>

@@ -54,7 +54,14 @@
           "backgroundColor": "#0D0B1E"
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermissionText": "O InfasCare usa a localização do seu celular para mostrá-la na tela de localização. Ela não é enviada nem guardada nos servidores."
+        }
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,
