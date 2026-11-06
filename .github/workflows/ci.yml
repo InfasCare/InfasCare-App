@@ -1,0 +1,37 @@
+name: InfasCare - CI Pipeline
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mobile-ci:
+    name: Validate React Native App
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check TypeScript
+        run: npx tsc --noEmit
+
+      - name: Run ESLint
+        run: npm run lint --if-present
+
+      - name: Check Expo dependencies
+        run: npx expo install --check
